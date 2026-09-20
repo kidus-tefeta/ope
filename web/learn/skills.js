@@ -1,7 +1,8 @@
 /* THE SKILL LIST. Fixed, in order, the same for everybody.
 
    Eight parts from never having opened a terminal to reviewing and rejecting
-   an AI's code, twelve milestones in each, ninety six in all. Every project in
+   an AI's code, 113 milestones. Twelve in each part to begin with, and the
+   milestones added later sit at the end of the part they belong to. Every project in
    the world uses the same things: values, decisions, loops, functions, data,
    errors. The list is those things in the order they can be learned. The
    practice comes from your own project and the OPE Course; only the list is
@@ -22,7 +23,10 @@ window.OPESkills = [
     {id: 'git-save',          name: 'Saving a checkpoint with git'},
     {id: 'git-history',       name: 'Reading the history'},
     {id: 'git-diff',          name: 'Seeing what changed'},
-    {id: 'git-undo',          name: 'Going back to the last checkpoint'}
+    {id: 'git-undo',          name: 'Going back to the last checkpoint'},
+    {id: 'git-branch',        name: 'Working on a branch'},
+    {id: 'git-conflict',      name: 'Two changes to the same line'},
+    {id: 'git-pr',            name: 'A pull request somebody reviews'}
   ]},
   {n: 1, name: 'Reader', can: 'read code and say what it does', ai: true, skills: [
     {id: 'read-values',   name: 'Values and variables'},
@@ -78,7 +82,11 @@ window.OPESkills = [
     {id: 'build-fetch',     name: 'Asking another computer for data'},
     {id: 'build-search',    name: 'Sorting and searching'},
     {id: 'build-own-tests', name: 'Writing your own tests'},
-    {id: 'build-app',       name: 'A small app with its own tests'}
+    {id: 'build-app',       name: 'A small app with its own tests'},
+    {id: 'build-recursion',   name: 'A function that calls itself'},
+    {id: 'build-linked',      name: 'A list you build yourself'},
+    {id: 'build-hash',        name: 'Finding something instantly: a hash table'},
+    {id: 'build-cost',        name: 'What it costs as the data grows'}
   ]},
   {n: 5, name: 'Debugger', can: 'find and fix bugs, planted and real', ai: false, skills: [
     {id: 'debug-error',      name: 'Reading an error message'},
@@ -92,7 +100,9 @@ window.OPESkills = [
     {id: 'debug-scope',      name: 'The value that leaked'},
     {id: 'debug-async',      name: 'The missing await'},
     {id: 'debug-state',      name: 'Something changed that should not have'},
-    {id: 'debug-regression', name: 'What changed and broke it'}
+    {id: 'debug-regression', name: 'What changed and broke it'},
+    {id: 'debug-breakpoint',  name: 'Stopping the program to look inside'},
+    {id: 'debug-logs',        name: 'Finding the failure in the logs'}
   ]},
   {n: 6, name: 'Designer', can: 'plan data, functions and structure before any code', ai: false, skills: [
     {id: 'design-naming',     name: 'Good names'},
@@ -106,7 +116,11 @@ window.OPESkills = [
     {id: 'design-errors',     name: 'Deciding what can go wrong'},
     {id: 'design-plan',       name: 'A plan before the code'},
     {id: 'design-tradeoff',   name: 'Choosing between two ways, and saying why'},
-    {id: 'design-review',     name: 'Judging your own design'}
+    {id: 'design-review',     name: 'Judging your own design'},
+    {id: 'design-http',       name: 'A request and what comes back'},
+    {id: 'design-join',       name: 'Two tables that belong together'},
+    {id: 'design-transaction', name: 'Both halves, or neither'},
+    {id: 'design-auth',       name: 'Who someone is, and their password'}
   ]},
   {n: 7, name: 'Elite', can: 'review AI code, reject bad code and explain why', ai: false, skills: [
     {id: 'elite-review',      name: 'Reviewing code somebody else wrote'},
@@ -120,7 +134,11 @@ window.OPESkills = [
     {id: 'elite-cache',       name: 'Not doing the same work twice'},
     {id: 'elite-race',        name: 'Two things at once'},
     {id: 'elite-architecture', name: 'How the whole thing should grow'},
-    {id: 'elite-system',      name: 'Explaining the whole system'}
+    {id: 'elite-system',      name: 'Explaining the whole system'},
+    {id: 'elite-strange',     name: 'Reading a codebase you have never seen'},
+    {id: 'elite-deps',        name: 'The code you did not write: dependencies'},
+    {id: 'elite-deploy',      name: 'Shipping it, and taking it back'},
+    {id: 'elite-types',       name: 'Refusing the wrong input'}
   ]}
 ];
 

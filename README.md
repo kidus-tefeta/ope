@@ -126,12 +126,16 @@ you, and saying "urgent" lets one build go ahead without a piece. Explaining a
 piece works the same way: your answer goes into a file and your AI coder grades
 it on its next run.
 
-- **Eight parts, 96 milestones**: Computer, Reader, Tweaker, Writer,
-  Builder, Debugger, Designer, Elite, twelve milestones each. The list is fixed; the
-  practice comes from your own code.
+- **Eight parts, 113 milestones**: Computer, Reader, Tweaker, Writer,
+  Builder, Debugger, Designer, Elite. The list is fixed; the practice comes from
+  your own code. It covers what the other courses cover and the parts they skip:
+  git with other people, recursion, a list and a hash table you build yourself,
+  what code costs as the data grows, a debugger, logs, requests, joins and
+  indexes, transactions, passwords, dependencies, shipping and rolling back, and
+  reading a codebase you have never seen.
 - **Nothing too hard reaches you.** The AI says how hard a piece is, OPE's own
   rules check it, and the harder of the two is used.
-- **A practice bank** of 104 tasks, each with its own test, for the days your
+- **A practice bank** of 114 tasks, each with its own test, for the days your
   project has nothing at your skill. Practice work goes in an **OPE Course**
   folder on your Desktop, with its own git history, and never touches your
   projects.

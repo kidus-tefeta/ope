@@ -4,6 +4,29 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
+## 6.3 The gaps the other courses teach
+Done
+Seventeen milestones added to the course, from reading CS50, The Odin Project,
+freeCodeCamp, Full Stack Open and Boot.dev against OPE's own list: git with
+other people (branch, conflict, pull request), the CS50 weeks (recursion, a
+linked list and a hash table built by hand, what code costs as the data grows),
+the tools for finding a bug (a debugger, logs), how the machine really works
+(a request and its statuses, joins and indexes, transactions, passwords and
+identity), and the parts of a job nobody teaches (reading a strange codebase,
+dependencies, shipping and rolling back, refusing bad input). 113 milestones,
+114 practice tasks.
+
+1 none
+1a Compare OPE's 96 milestones against CS50, Odin, freeCodeCamp, Full Stack Open and Boot.dev, and name the real gaps.
+2 none
+2a Add the 17 milestones to the end of the parts they belong to.
+3 none
+3a Write a practice task and a test for each of the 14 that can be tested, and an explain task for the 3 that cannot.
+4 none
+4a Prove every new test: it fails on the starter files and passes on a correct answer.
+5 none
+5a The README and the course header say what the course now covers.
+
 ## 6.2 Your part
 Building
 In Learning mode the AI coder leaves one or two small pieces of each build for
