@@ -7,10 +7,10 @@
 // arguments and the same answer.
 import http from 'node:http';
 import { readFile, writeFile, stat, readdir } from 'node:fs/promises';
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch, existsSync, statSync, chmodSync } from 'node:fs';
 import { join, resolve, relative, extname, dirname, basename, sep } from 'node:path';
 import { homedir, platform } from 'node:os';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -94,6 +94,153 @@ function watchRoot(){
       for (const res of listeners) res.write(`data: ${JSON.stringify({ paths })}\n\n`);
     }, 250);
   });
+}
+
+/* THE TERMINAL. A real shell, one for each project, kept running for as long as
+   OPE is open, so a long job is never lost by looking at something else.
+
+   What the person types here is theirs. The allowlist above is for the tests OPE
+   runs by itself, and none of it applies to this.
+
+   The engine is node-pty: a real pty on Mac and Linux, ConPTY on Windows. When
+   it cannot be loaded, OPE runs the shell on plain pipes instead and says so out
+   loud, because a pipe is not a terminal: no prompt, no progress bars, nothing
+   that asks a question. It never pretends.
+
+   Output is pushed to the page down the same stream the file watcher uses, in
+   base64 so no byte can corrupt the JSON or split a character, gathered up and
+   sent at most every 16 ms. */
+const PTY_KEEP = 200 * 1024;  /* scrollback held for coming back to, bytes */
+const PTY_FLUSH = 16;         /* how often output is sent to the page, ms */
+const shells = new Map();     /* project folder -> the shell running in it */
+let ptyMod;                   /* undefined: not tried yet. null: not available */
+let ptyWhy = '';
+
+/* node-pty is shipped with spawn-helper missing the bit that says it may be
+   run, and without it every spawn on Mac and Linux dies with posix_spawnp
+   failed. Put it back, once, before the first shell. */
+function ptyHelper(pkg){
+  if (!pkg || platform() === 'win32') return;
+  for (const d of ['build/Release', 'build/Debug', `prebuilds/${platform()}-${process.arch}`]) {
+    const f = join(pkg, d, 'spawn-helper');
+    try { if (existsSync(f) && !(statSync(f).mode & 0o111)) chmodSync(f, 0o755); } catch {}
+  }
+}
+
+async function loadPty(){
+  if (ptyMod !== undefined) return ptyMod;
+  /* in the Windows app this bridge runs from the app's resources, outside the
+     asar, so it cannot find node-pty itself: the window loads it and hands it
+     over (desktop/main.mjs) */
+  const given = globalThis.__opePty;
+  if (given && typeof given.spawn === 'function') { ptyHelper(globalThis.__opePtyDir); return (ptyMod = given); }
+  try {
+    try { ptyHelper(dirname(dirname(fileURLToPath(import.meta.resolve('node-pty'))))); } catch {}
+    const m = await import('node-pty');
+    const mod = typeof m.spawn === 'function' ? m : m.default;
+    if (!mod || typeof mod.spawn !== 'function') throw new Error('node-pty loaded without spawn');
+    ptyMod = mod;
+  } catch (e) {
+    ptyMod = null;
+    ptyWhy = String(globalThis.__opePtyWhy || (e && e.message) || e);
+  }
+  return ptyMod;
+}
+
+/* their own shell, the one they have in Terminal */
+function shellFor(){
+  if (platform() === 'win32') {
+    const ps = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    return existsSync(ps) ? ps : (process.env.ComSpec || 'cmd.exe');
+  }
+  return process.env.SHELL || '/bin/zsh';
+}
+function shellArgs(exe, real){
+  if (platform() !== 'win32') return real ? ['-l'] : [];
+  if (/powershell\.exe$/i.test(exe)) return real ? ['-NoLogo'] : ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '-'];
+  return real ? [] : ['/Q'];
+}
+function shellEnv(){
+  const env = Object.assign({}, process.env, { TERM: 'xterm-256color', COLORTERM: 'truecolor' });
+  /* the bridge's own secret never goes into the person's shell */
+  delete env.OPE_TOKEN; delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}
+function ptySize(cols, rows){
+  return [Math.max(20, Math.min(400, Math.round(Number(cols) || 80))),
+          Math.max(4, Math.min(200, Math.round(Number(rows) || 24)))];
+}
+
+function ptySend(o){
+  const line = `data: ${JSON.stringify({ pty: o })}\n\n`;
+  for (const res of listeners) { try { res.write(line); } catch {} }
+}
+function ptyKeep(s, buf){
+  s.keep.push(buf); s.kept += buf.length;
+  while (s.kept > PTY_KEEP && s.keep.length > 1) s.kept -= s.keep.shift().length;
+  if (s.kept > PTY_KEEP) { const b = s.keep[0]; s.keep[0] = b.subarray(b.length - PTY_KEEP); s.kept = PTY_KEEP; }
+}
+function ptyFlush(s){
+  if (s.timer) { clearTimeout(s.timer); s.timer = null; }
+  if (!s.pend.length) return;
+  const all = Buffer.concat(s.pend); s.pend = [];
+  ptySend({ data: all.toString('base64') });
+}
+function ptyData(s, chunk){
+  const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8');
+  if (!buf.length) return;
+  ptyKeep(s, buf); s.pend.push(buf);
+  if (!s.timer) s.timer = setTimeout(() => { s.timer = null; ptyFlush(s); }, PTY_FLUSH);
+}
+function ptyEnded(s, code){
+  if (!s.running) return;
+  s.running = false;
+  ptyFlush(s);
+  ptySend({ exit: typeof code === 'number' ? code : 0 });
+}
+/* the shell is killed, but its death is still announced the same way as any
+   other: the page hears one exit, whoever asked for it */
+function ptyStop(s){
+  try { s.proc && s.proc.kill(); } catch { s.running = false; }
+}
+function closeShells(){
+  for (const s of shells.values()) { try { ptyStop(s); } catch {} }
+  shells.clear();
+}
+/* nothing is left running behind the app */
+globalThis.__opeCloseShells = closeShells;
+process.on('exit', closeShells);
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'])
+  process.on(sig, () => { closeShells(); process.exit(0); });
+
+async function ptyStart(at, cols, rows){
+  const old = shells.get(at);
+  if (old) { ptyStop(old); shells.delete(at); }
+  const mod = await loadPty();
+  const [c, r] = ptySize(cols, rows);
+  const exe = shellFor();
+  const s = { cwd: at, shell: exe, kind: mod ? 'pty' : 'pipe', keep: [], kept: 0, pend: [], timer: null, running: true };
+  if (mod) {
+    s.proc = mod.spawn(exe, shellArgs(exe, true), { name: 'xterm-256color', cols: c, rows: r, cwd: at, env: shellEnv() });
+    s.proc.onData(d => ptyData(s, d));
+    s.proc.onExit(e => ptyEnded(s, e && typeof e.exitCode === 'number' ? e.exitCode : 0));
+  } else {
+    s.why = 'The real terminal engine did not load, so this is the shell on plain pipes: '
+      + (ptyWhy || 'node-pty is not installed') + '. Commands run and you see what they print, but nothing interactive works.';
+    s.proc = spawn(exe, shellArgs(exe, false), { cwd: at, env: shellEnv(), stdio: ['pipe', 'pipe', 'pipe'] });
+    s.proc.stdout.on('data', d => ptyData(s, d));
+    s.proc.stderr.on('data', d => ptyData(s, d));
+    s.proc.on('error', e => { ptyData(s, '\r\n' + e.message + '\r\n'); ptyEnded(s, 1); });
+    s.proc.on('close', code => ptyEnded(s, code == null ? 0 : code));
+  }
+  shells.set(at, s);
+  return ptyAnswer(s, true);
+}
+function ptyAnswer(s, started){
+  const out = { ok: true, started, cwd: s.cwd, shell: s.shell,
+    buffer: started ? '' : Buffer.concat(s.keep).toString('base64') };
+  if (s.kind === 'pipe') { out.degraded = true; out.why = s.why; }
+  return out;
 }
 
 /* OPE Chat, the twin of the Chat enum in main.swift. A browser has no Apple
@@ -227,6 +374,37 @@ async function command(b){
         env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }), shell: platform() === 'win32' && args[0] !== 'node' },
         (e, out, err) => done({ code: e ? (typeof e.code === 'number' ? e.code : 1) : 0, out: String(out || ''),
           err: String(err || '') + (e && e.killed ? '\nStopped after a minute.' : '') })));
+    }
+    /* THE TERMINAL. Separate from run: this is the person's own shell, and what
+       they type in it is theirs. Output comes back on the /events stream. */
+    case 'ptyOpen': {
+      if (!root) throw new Error('Open a project first.');
+      const s = shells.get(root);
+      /* one shell for each project: if it is still alive, come back to it and
+         bring what it printed while nobody was looking */
+      if (s && s.running) return ptyAnswer(s, false);
+      return await ptyStart(root, b.cols, b.rows);
+    }
+    case 'ptyWrite': {
+      const s = shells.get(root);
+      if (!s || !s.running) throw new Error('The terminal is not open.');
+      const data = String(b.data ?? '');
+      if (s.kind === 'pty') s.proc.write(data); else s.proc.stdin.write(data);
+      return { ok: true };
+    }
+    case 'ptyResize': {
+      const s = shells.get(root);
+      if (s && s.running && s.kind === 'pty') { const [c, r] = ptySize(b.cols, b.rows); try { s.proc.resize(c, r); } catch {} }
+      return { ok: true };
+    }
+    case 'ptyClose': {
+      const s = shells.get(root);
+      if (s) { ptyStop(s); shells.delete(root); }
+      return { ok: true };
+    }
+    case 'ptyState': {
+      const s = shells.get(root);
+      return { open: !!s, running: !!(s && s.running), cwd: s ? s.cwd : root };
     }
     case 'chatEngine': return chatEngine();
     case 'chat': return chatAsk(b);

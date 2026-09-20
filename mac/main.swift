@@ -10,6 +10,7 @@
 // the other.
 import Cocoa
 import WebKit
+import Darwin
 import CoreServices
 import Vision
 import UniformTypeIdentifiers
@@ -503,6 +504,227 @@ func installSystem(into root: URL) -> [String: [String]] {
     return ["added": added, "kept": kept]
 }
 
+// ---------------------------------------------------------------- the terminal
+
+/* A REAL TERMINAL, NOT A COMMAND RUNNER.
+
+   `Learn.run` starts one program and hands back what it printed. That is not a
+   terminal: there is no prompt, no colour, no Ctrl+C, and a download that draws
+   a progress bar draws nothing at all. So this opens a pty, the same device
+   Terminal opens, and runs the person's own login shell on the other end of it.
+   Everything then behaves the way it does in Terminal, because it is the same
+   thing.
+
+   One shell for each project folder, kept by its path, so looking at another
+   screen, or opening another project and coming back, never loses a 1.9 GB
+   pull. The page gets the output in base64, gathered up and sent at most every
+   sixteenth of a second, so a fast build does not fire thousands of calls into
+   the web view.
+
+   OPE NEVER TYPES. Nothing in this file writes to the shell except ptyWrite,
+   and ptyWrite carries only what the person pressed on the keyboard. */
+final class Shell {
+  static let cap = 200 * 1024        // the scrollback kept for coming back
+
+  let root: String
+  let shell: String
+  private(set) var fd: Int32 = -1
+  private(set) var pid: pid_t = -1
+  private(set) var live = true
+
+  private let lock = NSLock()
+  private let io = DispatchQueue(label: "ope.pty.write")
+  private var scroll = Data()
+  private var pending = Data()
+  private var flushing = false
+  private var lastOut = Date.distantPast
+
+  /* argv and the environment are built before the fork, because between the
+     fork and the exec a child may only call the few things that are safe
+     there, and allocating memory is not one of them */
+  init(root: String, cols: Int, rows: Int) throws {
+    self.root = root
+    let path = ProcessInfo.processInfo.environment["SHELL"].flatMap { $0.isEmpty ? nil : $0 } ?? "/bin/zsh"
+    self.shell = FileManager.default.isExecutableFile(atPath: path) ? path : "/bin/zsh"
+    let name = (self.shell as NSString).lastPathComponent
+
+    var env = ProcessInfo.processInfo.environment
+    env["TERM"] = "xterm-256color"
+    /* PATH is left alone on purpose. A login shell builds its own, so ollama,
+       git and node are found exactly where the person finds them in Terminal */
+    let cShell = strdup(self.shell)
+    let cDir = strdup(root)
+    /* the leading dash is how a shell is told it is a login shell */
+    let argList: [UnsafeMutablePointer<CChar>?] = [strdup("-" + name), strdup("-i"), nil]
+    let envList: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") } + [nil]
+    let argv = UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>.allocate(capacity: argList.count)
+    let envp = UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>.allocate(capacity: envList.count)
+    for (i, v) in argList.enumerated() { argv[i] = v }
+    for (i, v) in envList.enumerated() { envp[i] = v }
+
+    var win = winsize(ws_row: UInt16(max(1, rows)), ws_col: UInt16(max(1, cols)), ws_xpixel: 0, ws_ypixel: 0)
+    var master: Int32 = -1
+    let child = forkpty(&master, nil, nil, &win)
+    if child < 0 { throw OPEError("A terminal could not be opened on this Mac.") }
+    if child == 0 {
+      /* the child. Foundation turns some signals off for itself, and the shell
+         needs them back or Ctrl+C reaches nothing */
+      signal(SIGPIPE, SIG_DFL); signal(SIGINT, SIG_DFL); signal(SIGQUIT, SIG_DFL); signal(SIGTERM, SIG_DFL)
+      _ = chdir(cDir)
+      _ = execve(cShell, argv, envp)
+      _exit(127)
+    }
+    pid = child
+    fd = master
+    _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
+    read()
+  }
+
+  // ------------------------------------------------------------ reading
+
+  /* its own thread, never the main one, so a build printing as fast as it can
+     cannot make the window stop drawing */
+  private func read() {
+    let fd = self.fd
+    Thread.detachNewThread { [weak self] in
+      var buf = [UInt8](repeating: 0, count: 65536)
+      while true {
+        let n = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, 65536) }
+        if n > 0 { self?.got(Data(buf[0..<n])); continue }
+        if n < 0 && errno == EINTR { continue }
+        break
+      }
+      self?.ended()
+    }
+  }
+
+  private func got(_ d: Data) {
+    lock.lock()
+    scroll.append(d)
+    if scroll.count > Shell.cap { scroll.removeFirst(scroll.count - Shell.cap) }
+    pending.append(d)
+    lastOut = Date()
+    let first = !flushing
+    if first { flushing = true }
+    lock.unlock()
+    /* gathered up: at most one message to the page every sixteenth of a second */
+    if first { DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(16)) { [weak self] in self?.flush() } }
+  }
+
+  private func flush() {
+    lock.lock()
+    let d = pending
+    pending = Data()
+    flushing = false
+    lock.unlock()
+    if d.isEmpty { return }
+    Term.shared.emit(["pty": ["data": d.base64EncodedString()]])
+  }
+
+  private func ended() {
+    var status: Int32 = 0
+    while waitpid(pid, &status, 0) < 0 && errno == EINTR {}
+    let code = (status & 0x7f) == 0 ? Int((status >> 8) & 0xff) : Int(128 + (status & 0x7f))
+    lock.lock(); live = false; lock.unlock()
+    DispatchQueue.main.async {
+      self.flush()
+      Term.shared.emit(["pty": ["exit": code]])
+      Term.shared.forget(self.root)
+    }
+  }
+
+  // ------------------------------------------------------------ the page talking back
+
+  /* the only way anything ever reaches the shell */
+  func write(_ text: String) {
+    guard live, fd >= 0 else { return }
+    let data = Data(text.utf8)
+    let fd = self.fd
+    io.async {
+      data.withUnsafeBytes { raw in
+        var at = 0
+        while at < raw.count {
+          let n = Darwin.write(fd, raw.baseAddress!.advanced(by: at), raw.count - at)
+          if n > 0 { at += n; continue }
+          if n < 0 && errno == EINTR { continue }
+          break
+        }
+      }
+    }
+  }
+
+  func resize(cols: Int, rows: Int) {
+    guard fd >= 0 else { return }
+    var win = winsize(ws_row: UInt16(max(1, rows)), ws_col: UInt16(max(1, cols)), ws_xpixel: 0, ws_ypixel: 0)
+    _ = ioctl(fd, TIOCSWINSZ, &win)
+  }
+
+  /* what came back since the shell started, cut to 200 KB from the front. The
+     cut is moved past any half a letter, so a character split down the middle
+     never reaches the page */
+  var buffer: String {
+    lock.lock(); var d = scroll; lock.unlock()
+    while let b = d.first, b & 0xc0 == 0x80 { d.removeFirst() }
+    return String(decoding: d, as: UTF8.self)
+  }
+
+  /* IS SOMETHING STILL RUNNING? The terminal itself knows: the pty hands the
+     keyboard to whichever group of programs is in front, so when that is not
+     the shell, the shell is waiting on something. Recent output is the fallback
+     for the rare Mac where the pty will not say. */
+  var running: Bool {
+    guard live, fd >= 0 else { return false }
+    let front = tcgetpgrp(fd)
+    if front > 0 { return front != pid }
+    return Date().timeIntervalSince(lastOut) < 2
+  }
+
+  func stop() {
+    lock.lock(); live = false; lock.unlock()
+    if pid > 0 {
+      killpg(pid, SIGHUP)
+      kill(pid, SIGKILL)
+      var status: Int32 = 0
+      _ = waitpid(pid, &status, WNOHANG)
+    }
+    if fd >= 0 { close(fd); fd = -1 }
+  }
+}
+
+/* every shell there is, kept by the project folder it was started in */
+final class Term {
+  static let shared = Term()
+  private var shells: [String: Shell] = [:]
+  /* set by the app to the web view, the same way a file change is pushed */
+  var push: (([String: Any]) -> Void)?
+
+  func emit(_ ev: [String: Any]) { push?(ev) }
+  func forget(_ root: String) { if shells[root]?.live == false { shells[root] = nil } }
+
+  /* open, or come back to the one already there. Never two for one folder */
+  func open(_ root: String, cols: Int, rows: Int) throws -> [String: Any] {
+    if let s = shells[root], s.live {
+      s.resize(cols: cols, rows: rows)
+      return ["ok": true, "started": false, "cwd": root, "shell": s.shell, "buffer": s.buffer]
+    }
+    let s = try Shell(root: root, cols: cols, rows: rows)
+    shells[root] = s
+    return ["ok": true, "started": true, "cwd": root, "shell": s.shell, "buffer": ""]
+  }
+
+  func at(_ root: String) -> Shell? { let s = shells[root]; return s?.live == true ? s : nil }
+
+  func close(_ root: String) {
+    shells[root]?.stop()
+    shells[root] = nil
+  }
+
+  func closeAll() {
+    for (_, s) in shells { s.stop() }
+    shells = [:]
+  }
+}
+
 // ---------------------------------------------------------------- the bridge
 
 final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
@@ -630,6 +852,34 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
       guard let root = project.root else { fail("Open a project first."); return }
       reply(installSystem(into: root))
 
+    /* THE TERMINAL. The person's own shell, in the project folder, on a real
+       pty. Nothing here ever sends a command of its own: ptyWrite carries only
+       what was pressed on the keyboard. */
+    case "ptyOpen":
+      guard let root = at(body).root?.path else { fail("Open a project first."); return }
+      let cols = body["cols"] as? Int ?? 80, rows = body["rows"] as? Int ?? 24
+      do { reply(try Term.shared.open(root, cols: cols, rows: rows)) }
+      catch let e as OPEError { fail(e.message) } catch { fail("A terminal could not be opened.") }
+
+    case "ptyWrite":
+      guard let root = at(body).root?.path else { fail("Open a project first."); return }
+      Term.shared.at(root)?.write(body["data"] as? String ?? "")
+      reply(["ok": true])
+
+    case "ptyResize":
+      guard let root = at(body).root?.path else { fail("Open a project first."); return }
+      Term.shared.at(root)?.resize(cols: body["cols"] as? Int ?? 80, rows: body["rows"] as? Int ?? 24)
+      reply(["ok": true])
+
+    case "ptyClose":
+      if let root = at(body).root?.path { Term.shared.close(root) }
+      reply(["ok": true])
+
+    case "ptyState":
+      let root = at(body).root?.path ?? ""
+      let s = Term.shared.at(root)
+      reply(["open": s != nil, "running": s?.running ?? false, "cwd": root])
+
     case "copy":
       NSPasteboard.general.clearContents()
       NSPasteboard.general.setString(body["text"] as? String ?? "", forType: .string)
@@ -690,12 +940,23 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigation
       self.web.evaluateJavaScript("window.OPEBridge && OPEBridge.emit(\(json))", completionHandler: nil)
     }
 
+    /* the terminal's output, gathered up and sent the same way */
+    Term.shared.push = { [weak self] ev in
+      guard let self = self,
+            let data = try? JSONSerialization.data(withJSONObject: ev),
+            let json = String(data: data, encoding: .utf8) else { return }
+      self.web.evaluateJavaScript("window.OPEBridge && OPEBridge.emit(\(json))", completionHandler: nil)
+    }
+
     web.load(URLRequest(url: HOME))
     window.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
+
+  /* no shell outlives the app */
+  func applicationWillTerminate(_ n: Notification) { Term.shared.closeAll() }
 
   /* A PAGE'S FILE PICKER DOES NOTHING IN A WEB VIEW UNLESS THE APP OPENS IT.
 

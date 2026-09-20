@@ -11,9 +11,15 @@
   "scripts": {
     "start": "electron .",
     "check": "electron . --self-check",
+    "pty:check": "node ../scripts/pty-check.cjs",
+    "pty:rebuild": "electron-rebuild -f -w node-pty",
     "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
+  "dependencies": {
+    "node-pty": "1.1.0"
+  },
   "devDependencies": {
+    "@electron/rebuild": "4.2.0",
     "electron": "44.3.0",
     "electron-builder": "26.15.3"
   },
@@ -21,7 +27,18 @@
     "appId": "com.outpast.ope",
     "productName": "OPE",
     "asar": true,
-    "files": ["main.mjs", "preload.cjs", "package.json"],
+    "npmRebuild": false,
+    "files": [
+      "main.mjs",
+      "preload.cjs",
+      "package.json",
+      "node_modules/node-pty/**/*",
+      "!node_modules/node-pty/**/*.pdb",
+      "!node_modules/node-pty/prebuilds/darwin-*/**"
+    ],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**"
+    ],
     "extraResources": [
       { "from": "../web", "to": "ope/web", "filter": ["**/*"] },
       { "from": "../scripts/dev-server.mjs", "to": "ope/scripts/dev-server.mjs" },

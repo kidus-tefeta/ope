@@ -34,6 +34,13 @@ html.win32 .top,html.linux .top{padding:0 146px 0 12px!important}
 .ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .ico:hover{color:var(--ink)}
 .ico.on{color:var(--ink);border-color:#F08A3C}
+.ico{position:relative}
+.ico.mark img{width:18px;height:auto;display:block;opacity:.72}
+.ico.mark:hover img,.ico.mark.on img{opacity:1}
+/* the terminal icon wears a green dot while something is still running in it */
+.ico .live{display:none;position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 0 2px #000}
+.ico.live .live{display:block;animation:opePulse 1.6s ease-in-out infinite}
 
 .panel{border:1px solid var(--edge);border-radius:8px;background:var(--panel);min-width:0;min-height:0;
   display:flex;flex-direction:column;overflow:hidden}
@@ -296,3 +303,22 @@ html.win32 .top,html.linux .top{padding:0 146px 0 12px!important}
 .led textarea{width:100%;min-height:260px;margin:0;border:1px solid var(--edge);border-radius:6px;background:#000;color:var(--ink);
   padding:12px;font:13px/1.55 var(--mono);resize:vertical;tab-size:2;white-space:pre;overflow:auto}
 .led textarea:focus{outline:0;border-color:var(--green)}
+
+/* ------------------------------------------------------------- the terminal
+   Full screen, over everything, black. The project path across the top and one
+   way out: Escape, or the ×. Leaving hides it; the shell keeps running. */
+.termview{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column}
+.termtop{flex:0 0 auto;height:38px;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;
+  border-bottom:1px solid var(--edge-dim)}
+.termwhere{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--ink);font-size:12px;letter-spacing:.04em}
+.termhint{flex:0 0 auto;color:var(--faint);font-size:11px}
+.termx{flex:0 0 auto;width:26px;height:26px;border:1px solid var(--edge-dim);border-radius:6px;background:#000;
+  color:var(--sub);cursor:pointer;font-size:16px;line-height:1;padding:0}
+.termx:hover{color:var(--ink);border-color:var(--edge)}
+.termsay{flex:0 0 auto;padding:6px 14px;border-bottom:1px solid var(--edge-dim);background:#0b1014;
+  color:var(--sub);font-size:11.5px}
+.termbody{flex:1;min-height:0;padding:8px 6px 8px 12px}
+.termbody .xterm{height:100%}
+.termbody .xterm-viewport::-webkit-scrollbar{width:8px}
+.termbody .xterm-viewport::-webkit-scrollbar-thumb{background:#1f2a31;border-radius:4px}

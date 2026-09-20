@@ -3,6 +3,7 @@
 // this process on 127.0.0.1 with a secret token, so only this window reaches it.
 import { app, BrowserWindow, ipcMain, dialog, clipboard, shell } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
@@ -26,9 +27,26 @@ function freePort(){
   });
 }
 
+/* THE TERMINAL'S ENGINE. node-pty lives next to this file inside the app, but
+   the bridge runs from the app's resources, outside the asar, and cannot find it
+   from there. So the window loads it and hands it over. If it does not load, the
+   bridge runs the shell on plain pipes instead and tells the person why, in
+   those words: it never pretends a pipe is a terminal. */
+function handOverPty(){
+  try {
+    const req = createRequire(import.meta.url);
+    globalThis.__opePty = req('node-pty');
+    globalThis.__opePtyDir = join(dirname(req.resolve('node-pty')), '..');
+  } catch (e) {
+    globalThis.__opePtyWhy = 'node-pty did not load in this build (' + e.message + ')';
+    console.error('OPE: ' + globalThis.__opePtyWhy);
+  }
+}
+
 async function startBridge(){
   // the check keeps its library away from the person's real one
   if (CHECK) process.env.HOME = process.env.USERPROFILE = mkdtempSync(join(tmpdir(), 'ope-home-'));
+  handOverPty();
   const port = await freePort();
   process.env.PORT = String(port);
   process.env.OPE_TOKEN = TOKEN;
@@ -105,6 +123,30 @@ async function selfCheck(){
     const files = await call('list'); say(files.files.includes('index.html') && files.files.includes('app.js'), 'lists files with forward slashes');
     const read = await call('read', { path: 'app.js' }); say(/console/.test(read.text || ''), 'reads a file');
     const inst = await call('install'); say(inst.added.includes('AGENTS.md') && existsSync(join(dir, 'ope-system')), 'adds the OPE system');
+
+    /* THE TERMINAL, the part of a Windows build that breaks quietly. A node-pty
+       that did not ship, or was built for the wrong Electron, falls back to
+       pipes, and the installer would go out with a terminal that is not one.
+       This is what says so, and fails the build. The output is read off the
+       page's own stream, the same way the terminal reads it. */
+    const term = await call('ptyOpen', { cols: 80, rows: 24 });
+    say(term.ok && term.started, 'the terminal starts a shell (' + term.shell + ')');
+    say(!term.degraded, 'the terminal is a real one, not the pipe fallback' + (term.degraded ? ': ' + term.why : ''));
+    const heard = await win.webContents.executeJavaScript(`new Promise(function(ok){
+      var t = window.opeDesktop.token, es = new EventSource('/events?t=' + encodeURIComponent(t)), got = '';
+      var stop = function(v){ try { es.close(); } catch(e) {} ok(v); };
+      es.onmessage = function(m){ try { var j = JSON.parse(m.data);
+        if (j.pty && j.pty.data) { got += atob(j.pty.data); if (got.indexOf('ope-pty-works') >= 0) stop(true); }
+      } catch(e) {} };
+      es.onopen = function(){ fetch('/bridge', { method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-ope-token': t },
+        body: JSON.stringify({ cmd: 'ptyWrite', data: 'echo ope-pty-"works"\\r' }) }); };
+      setTimeout(function(){ stop('after 10 seconds the page had only ' + JSON.stringify(got.slice(-200))); }, 10000);
+    })`);
+    say(heard === true, 'the shell runs what is typed and the page hears it' + (heard === true ? '' : ': ' + heard));
+    const again = await call('ptyOpen', { cols: 80, rows: 24 });
+    say(again.started === false && again.buffer.length > 0, 'coming back finds the same shell, with what it printed');
+    say((await call('ptyClose')).ok, 'the terminal closes');
     if (process.env.OPE_SHOT) {
       win.showInactive(); win.reload();
       await new Promise(r => setTimeout(r, 4000));
@@ -129,4 +171,6 @@ app.whenReady().then(async () => {
   }
   await createWindow();
 });
+/* no shell is left running behind the app */
+app.on('will-quit', () => { try { globalThis.__opeCloseShells && globalThis.__opeCloseShells(); } catch {} });
 app.on('window-all-closed', () => app.quit());

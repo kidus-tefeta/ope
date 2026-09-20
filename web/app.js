@@ -959,6 +959,9 @@
     b.onclick = function(){
       var v = b.getAttribute('data-view');
       if(v === 'open') return pickProject();
+      /* the terminal is a screen over everything, not a view: it leaves the
+         view you were in exactly where it was */
+      if(v === 'term') return window.OPETerm && OPETerm.open();
       document.querySelectorAll('.rail .ico').forEach(function(x){ x.classList.toggle('on', x === b); });
       if(v === 'prompt') welcome();
       if(v === 'learn'){ S.path = ''; setDirty(false); $('tabName').textContent = 'Learn'; show('learn'); OPELearn.show(); }

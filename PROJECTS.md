@@ -102,3 +102,27 @@ A third mode next to Building and Learning while building: Learn only. You do no
 6a Test it start to finish on a clean machine state, then build and install.
 7 none
 7a The README and the OPE case study words.
+
+## 6.6 A terminal inside OPE
+Building
+A real terminal inside OPE, the same idea as the one in Claude Code: you type, it runs, you watch. It is there for the jobs that happen once, like installing Ollama, pulling the model, installing Git, and for anything else you want to run without leaving the app. The `>_` icon in the rail becomes the terminal and it opens full screen; the welcome moves to the OPE mark. On the Mac the engine is a pty in Swift, so nothing is added to the app; on Windows it is node-pty inside the Node twin, OPE's first native dependency. One shell for each project, it keeps running while you look at something else, and it comes back where you left it. It ships on GitHub for Mac and Windows in the same release.
+
+1 none
+1a The rail: the `>_` icon becomes the terminal, and the welcome takes the OPE mark.
+2 none
+2a The screen: a full screen terminal with the project path across the top, and Escape or a close button to leave it.
+3 none
+3a The Mac engine: a pty in Swift, no dependency, that follows the window when it is resized.
+4 none
+4a The Windows engine: node-pty in the Node twin, rebuilt for Electron in the build, so the Windows app has the same terminal.
+5 none
+5a One shell for each project. It keeps running while you look away and comes back where you left it, so a 1.9 GB pull is never lost.
+6 none
+6a It starts in the project folder, with your own shell and your own PATH, so ollama and git behave the way they do in Terminal.
+7 none
+7a A mark on the rail icon while something is still running, and the folder the shell is in written where you can see it.
+8 Install Ollama and pull the model from inside OPE, to prove it.
+8a Test it on the Mac and on the Windows build, then cut the release.
+9 none
+9a The README, the OPE case study words and the mac-app-github map.
+
