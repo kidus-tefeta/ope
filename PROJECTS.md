@@ -4,7 +4,7 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
-## 6.3 The gaps the other courses teach
+## 6.4 The gaps the other courses teach
 Done
 Seventeen milestones added to the course, from reading CS50, The Odin Project,
 freeCodeCamp, Full Stack Open and Boot.dev against OPE's own list: git with
