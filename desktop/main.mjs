@@ -32,6 +32,15 @@ function freePort(){
    from there. So the window loads it and hands it over. If it does not load, the
    bridge runs the shell on plain pipes instead and tells the person why, in
    those words: it never pretends a pipe is a terminal. */
+/* THE BRAIN'S ENGINE, project 6.5. llama.cpp lives next to this file inside the
+   app; the bridge runs from Resources and cannot find it from there, so the
+   window loads it and hands it over. If it does not load, OPE Chat falls back
+   to Ollama and says so. */
+async function handOverLlama(){
+  try { globalThis.__opeLlama = await import('node-llama-cpp'); }
+  catch (e) { globalThis.__opeLlama = null; }
+}
+
 function handOverPty(){
   try {
     const req = createRequire(import.meta.url);
@@ -47,6 +56,7 @@ async function startBridge(){
   // the check keeps its library away from the person's real one
   if (CHECK) process.env.HOME = process.env.USERPROFILE = mkdtempSync(join(tmpdir(), 'ope-home-'));
   handOverPty();
+  await handOverLlama();
   const port = await freePort();
   process.env.PORT = String(port);
   process.env.OPE_TOKEN = TOKEN;

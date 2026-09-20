@@ -103,6 +103,28 @@ A third mode next to Building and Learning while building: Learn only. You do no
 7 none
 7a The README and the OPE case study words.
 
+## 6.5 The brain ships with OPE
+Done
+OPE Chat used to need Ollama and a 1.9 GB download before it would answer, and
+on Windows that is where people stopped. Now the Windows installer carries its
+own brain: Qwen2.5 Coder 1.5B, four bit, 1.1 GB, run by llama.cpp inside the
+app. Nothing to install, no tray app, no service. Ollama stays optional and
+wins when it is there, because its model is bigger, and OPE says which brain
+answered.
+
+1 none
+1a A script that fetches the model into build/model, resumes a half done download and refuses a short file.
+2 none
+2a A brain the Node twin can call: llama.cpp loads the model once, answers, and lets it go after ten quiet minutes.
+3 none
+3a OPE Chat picks in order: Ollama, then the brain inside OPE, then it says plainly that it has neither.
+4 none
+4a The window hands llama.cpp to the bridge, the way it hands over the terminal, so it works inside the packaged app.
+5 none
+5a The Windows build fetches the model and ships it in the installer.
+6 Run the Windows installer on your laptop and ask OPE Chat something with Ollama closed.
+6a Prove it on this Mac with Ollama switched off: the engine says "inside OPE" and a real question about a real file is answered.
+
 ## 6.6 A terminal inside OPE
 Building
 A real terminal inside OPE, the same idea as the one in Claude Code: you type, it runs, you watch. It is there for the jobs that happen once, like installing Ollama, pulling the model, installing Git, and for anything else you want to run without leaving the app. The `>_` icon in the rail becomes the terminal and it opens full screen; the welcome moves to the OPE mark. On the Mac the engine is a pty in Swift, so nothing is added to the app; on Windows it is node-pty inside the Node twin, OPE's first native dependency. One shell for each project, it keeps running while you look at something else, and it comes back where you left it. It ships on GitHub for Mac and Windows in the same release.

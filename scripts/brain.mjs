@@ -34,11 +34,17 @@ export function modelFile(explicit) {
 }
 
 let mod = null            // the node-llama-cpp module, loaded the first time
-let ctx = null            // { llama, model, context, session, path }
+let ctx = null            // { llama, model, context, path }
 let idle = null
 
+/* Inside the packaged app this file runs from Resources, where it cannot find
+   the app's own node_modules, so the window loads llama.cpp and hands it over
+   in globalThis.__opeLlama, the same way it hands over the terminal's engine.
+   Running from source, the plain import is used. */
 async function llama() {
-  if (!mod) mod = await import('node-llama-cpp')
+  if (mod) return mod
+  if (globalThis.__opeLlama) { mod = globalThis.__opeLlama; return mod }
+  mod = await import('node-llama-cpp')
   return mod
 }
 
@@ -57,7 +63,13 @@ export function release() {
   try { old.model && old.model.dispose && old.model.dispose() } catch (e) {}
 }
 
-export function haveBrain(explicit) { return !!modelFile(explicit) }
+/* There is a brain here only if BOTH halves are: the model file and something
+   to run it with. */
+export function haveBrain(explicit) {
+  if (!modelFile(explicit)) return false
+  if (globalThis.__opeLlama) return true
+  try { import.meta.resolve('node-llama-cpp'); return true } catch (e) { return false }
+}
 
 async function open(explicit) {
   const path = modelFile(explicit)

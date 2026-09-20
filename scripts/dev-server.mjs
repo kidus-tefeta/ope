@@ -243,10 +243,15 @@ function ptyAnswer(s, started){
   return out;
 }
 
-/* OPE Chat, the twin of the Chat enum in main.swift. A browser has no Apple
-   model, so here it is always Ollama or nothing. */
+/* OPE Chat, the twin of the Chat enum in main.swift.
+
+   Three brains, and the first one that is there answers (project 6.5):
+     1. Ollama, if the person already runs it. Bigger model, best answers.
+     2. The model that ships inside OPE, Qwen2.5 Coder 1.5B, run by llama.cpp.
+        Nothing to install and nothing to download, which is the whole point.
+     3. Nothing, and OPE says so in a sentence instead of pretending. */
 const CHAT_MODEL = 'qwen2.5-coder:3b';
-const OLLAMA = 'http://127.0.0.1:11434';
+const OLLAMA = process.env.OPE_OLLAMA || 'http://127.0.0.1:11434';   // the env var is for testing the brain inside OPE
 let pulling = null;
 const CHAT_RULES = [
   'You are OPE Chat, a friendly assistant inside OPE, an app for people who build software by talking to an AI coder and cannot read code themselves.',
@@ -272,9 +277,23 @@ function chatPrompt(b, budget){
   if (code.length > budget) code = code.slice(0, budget) + '\n[the rest of the file was cut to fit]';
   return head.join('\n') + (code ? '\n\nThe code they have open, for if they ask about it:\n```\n' + code + '\n```' : '') + '\n\nThe person says: ' + String(b.question || '');
 }
+/* The model inside the app, loaded the first time somebody asks something. */
+let brain = null;
+async function ownBrain(){
+  if (brain === null) {
+    try { brain = await import('./brain.mjs'); } catch (e) { brain = false; }
+  }
+  return brain || null;
+}
+async function haveOwnBrain(){
+  const b = await ownBrain();
+  return !!(b && b.haveBrain());
+}
+
 async function chatEngine(){
   const has = await ollamaHasModel();
-  if (has === true) return { engine: 'ollama', label: 'Qwen2.5 Coder 3B, on this ' + COMPUTER };
+  if (has === true) return { engine: 'ollama', label: 'Qwen2.5 Coder 3B, through Ollama' };
+  if (await haveOwnBrain()) return { engine: 'own', label: 'Qwen2.5 Coder 1.5B, inside OPE' };
   if (has === false) return Object.assign({ engine: 'need-model', label: 'Needs a 1.9 GB download' }, pulling ? { pulling } : {});
   const installed = ['/usr/local/bin/ollama', '/opt/homebrew/bin/ollama', '/Applications/Ollama.app',
     join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe')].some(existsSync);
@@ -282,7 +301,15 @@ async function chatEngine(){
                    : { engine: 'none', label: 'Needs Ollama, free, from ollama.com' };
 }
 async function chatAsk(b){
-  if (await ollamaHasModel() !== true) throw new Error('OPE Chat has no model on this ' + COMPUTER + ' yet.');
+  /* Ollama when it is there, otherwise the model that came with the app. */
+  if (await ollamaHasModel() !== true) {
+    const own = await ownBrain();
+    if (own && own.haveBrain()) {
+      const answer = await own.ask(CHAT_RULES, chatPrompt(b, 9000), { maxTokens: 700 });
+      return { answer, engine: 'own' };
+    }
+    throw new Error('OPE Chat has no model on this ' + COMPUTER + ' yet.');
+  }
   const r = await fetch(OLLAMA + '/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ model: CHAT_MODEL, stream: false, options: { num_ctx: 8192, temperature: 0.2 },
       messages: [{ role: 'system', content: CHAT_RULES }, { role: 'user', content: chatPrompt(b, 18000) }] }) });

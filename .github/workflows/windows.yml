@@ -28,6 +28,9 @@ jobs:
           npm ci
           npm run vendor
 
+      - name: The model that ships inside the app
+        run: node scripts/fetch-model.mjs
+
       - name: Build the installer
         working-directory: desktop
         run: |

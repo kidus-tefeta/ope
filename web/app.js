@@ -782,7 +782,7 @@
   function chatSetup(e){
     var box = $('chatSetup'), line = $('chatEngine');
     CHAT.engine = e.engine; line.textContent = e.label || '';
-    if(e.engine === 'apple' || e.engine === 'ollama'){ box.classList.add('hidden'); box.innerHTML = ''; stopPoll(); return; }
+    if(e.engine === 'apple' || e.engine === 'ollama' || e.engine === 'own'){ box.classList.add('hidden'); box.innerHTML = ''; stopPoll(); return; }
     box.classList.remove('hidden');
     if(e.engine === 'none'){
       box.innerHTML = '<p>' + (window.opeDesktop ? 'OPE Chat uses a free model through Ollama.' : 'This Mac has no Apple Intelligence, so OPE Chat uses a free model through Ollama.') + '</p>' +
@@ -905,7 +905,7 @@
     if(!text && !pic) return box.focus();
     if(CHAT.busy) return;
     var log = $('chatLog');
-    var intro = $('chatIntro'); if(intro && CHAT.engine && (CHAT.engine === 'apple' || CHAT.engine === 'ollama')) intro.remove();
+    var intro = $('chatIntro'); if(intro && CHAT.engine && (CHAT.engine === 'apple' || CHAT.engine === 'ollama' || CHAT.engine === 'own')) intro.remove();
     var ctx = chatContext();
     var about = ctx.file ? (ctx.lines ? base(ctx.file) + ', lines ' + ctx.lines : base(ctx.file)) : 'No file open';
     log.insertAdjacentHTML('beforeend', '<div class="chat-msg me"><span class="about">' + esc(about) + '</span>' +

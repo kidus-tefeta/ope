@@ -13,10 +13,12 @@
     "check": "electron . --self-check",
     "pty:check": "node ../scripts/pty-check.cjs",
     "pty:rebuild": "electron-rebuild -f -w node-pty",
-    "dist:win": "electron-builder --win nsis --x64 --publish never"
+    "dist:win": "npm run model && electron-builder --win nsis --x64 --publish never",
+    "model": "node ../scripts/fetch-model.mjs"
   },
   "dependencies": {
-    "node-pty": "1.1.0"
+    "node-pty": "1.1.0",
+    "node-llama-cpp": "3.21.1"
   },
   "devDependencies": {
     "@electron/rebuild": "4.2.0",
@@ -34,19 +36,63 @@
       "package.json",
       "node_modules/node-pty/**/*",
       "!node_modules/node-pty/**/*.pdb",
-      "!node_modules/node-pty/prebuilds/darwin-*/**"
+      "!node_modules/node-pty/prebuilds/darwin-*/**",
+      "node_modules/node-llama-cpp/**/*",
+      "node_modules/@node-llama-cpp/**/*",
+      "!node_modules/@node-llama-cpp/mac-*/**",
+      "!node_modules/@node-llama-cpp/linux-*/**"
     ],
     "asarUnpack": [
-      "**/node_modules/node-pty/**"
+      "**/node_modules/node-pty/**",
+      "**/node_modules/node-llama-cpp/**",
+      "**/node_modules/@node-llama-cpp/**"
     ],
     "extraResources": [
-      { "from": "../web", "to": "ope/web", "filter": ["**/*"] },
-      { "from": "../scripts/dev-server.mjs", "to": "ope/scripts/dev-server.mjs" },
-      { "from": "../system", "to": "ope/system", "filter": ["**/*"] },
-      { "from": "../prompt", "to": "ope/prompt", "filter": ["**/*"] }
+      {
+        "from": "../web",
+        "to": "ope/web",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../scripts/dev-server.mjs",
+        "to": "ope/scripts/dev-server.mjs"
+      },
+      {
+        "from": "../system",
+        "to": "ope/system",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../prompt",
+        "to": "ope/prompt",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../scripts/brain.mjs",
+        "to": "ope/scripts/brain.mjs"
+      },
+      {
+        "from": "../build/model",
+        "to": "model",
+        "filter": [
+          "*.gguf"
+        ]
+      }
     ],
-    "directories": { "output": "dist", "buildResources": "assets" },
-    "win": { "target": "nsis", "icon": "assets/icon.png" },
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": false,

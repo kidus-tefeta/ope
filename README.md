@@ -173,7 +173,10 @@ Qwen2.5 Coder 3B through [Ollama](https://ollama.com), a one time 1.9 GB downloa
 OPE starts for you. It can also read the words in a picture, like a screenshot of
 an error: add it with the button, paste it, or drop it on the box.
 
-On Windows, OPE Chat uses Qwen2.5 Coder 3B through Ollama, and reading pictures
+On Windows the model comes with the app: Qwen2.5 Coder 1.5B, about 1.1 GB,
+inside the installer and run by llama.cpp. There is nothing to install and
+nothing to download. If you already have Ollama, OPE uses it instead, because
+its 3B model is better, and OPE Chat says which one answered. Reading pictures
 is Mac only for now.
 
 ## Projects built without OPE
