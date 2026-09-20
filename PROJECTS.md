@@ -60,3 +60,22 @@ A setting with two modes, Building and Learning while building. Learning teaches
 13a Test it start to finish on a real project.
 14 none
 14a The README and the mac-app-github map.
+
+## 6.3 Learn without building
+Building
+A third mode next to Building and Learning while building: Learn only. You do not need a project. OPE opens the OPE Course folder as the project, every milestone comes from the practice bank, and OPE Chat grades the written answers instead of your AI coder.
+
+1 none
+1a A third mode in the Learn view: Building, Learning while building, Learn only.
+2 none
+2a Learn only needs no project: picking it makes the OPE Course folder and opens it as the project, so the files and the history are there to look at.
+3 none
+3a Every piece comes from the practice bank, in order, and the door tests still work.
+4 none
+4a OPE Chat grades the written answers, with its reasons, and says plainly it is the small local model.
+5 none
+5a Nothing asks for an AI coder in this mode: no LEARN.md, no tags, no AGENTS.md, and the two parts that lean on your own project get their own bank task.
+6 Pick Learn only and pass one milestone.
+6a Test it start to finish on a clean machine state, then build and install.
+7 none
+7a The README and the OPE case study words.

@@ -110,9 +110,9 @@ Every map was walked for real before it was written down.
 
 ## Learning while building
 
-OPE can teach you to code on your own project. Each project has two modes:
-**Building**, where OPE works as above, and **Learning while building**. Switch it
-on in the Learn view (the cap on the left).
+OPE can teach you to code. The Learn view (the cap on the left) has three modes:
+**Building**, where OPE works as above, **Learning while building**, which teaches
+you on your own project, and **Learn only**, which needs no project at all.
 
 Your AI coder still writes the full, working code. OPE writes
 `ope-learn/LEARN.md` into the project, and `AGENTS.md` tells the AI to read it,
@@ -144,6 +144,12 @@ it on its next run.
   and the skill comes back until you pass it for real.
 
 ![Learning while building: a piece of your own project, cut out for you to write back](docs/learn.png)
+
+**Learn only** is the same course with nothing of your own in it. Press it and OPE
+makes an `OPE Course` folder on your Desktop, opens it as the project, and every
+milestone comes from the practice bank. There is no AI coder in this mode: OPE
+Chat, the small model already inside OPE, marks your written answers and says
+why. Nothing is written into any project of yours.
 
 Your progress is kept on this computer only, in `~/.config/ope/learn.json`.
 Tests run on your machine and grading uses the AI coder you already have, so

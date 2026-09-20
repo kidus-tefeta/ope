@@ -44,6 +44,11 @@
   function keep(){ return call('learnSave', {data: L.data}); }
   function root(){ return (window.OPE && OPE.state.root) || ''; }
   function mode(){ return (L.data && L.data.modes[root()]) || 'build'; }
+  /* 6.3: Learn only. No project and no AI coder. The OPE Course folder IS the
+     project, every piece comes from the practice bank, and OPE Chat marks the
+     written answers. Learning while building is the same course on your code. */
+  function solo(){ return mode() === 'solo'; }
+  function learning(){ return mode() === 'learn' || solo(); }
 
   /* the first skill not passed. There is no other way forward. */
   function current(){
@@ -213,7 +218,7 @@
      piece they change or write, and not yet passed or skipped. While this list has
      anything in it, LEARN.md tells the AI coder to build nothing more. */
   function waiting(){
-    if(mode() !== 'learn') return Promise.resolve([]);
+    if(mode() !== 'learn') return Promise.resolve([]);   /* never in Learn only */
     /* exactly the pieces OPE would hand out (see pick), so a piece too hard
        for them, or for another milestone, never blocks the AI coder */
     var m = me(), c = current();
@@ -230,7 +235,8 @@
     }).catch(function(){ return out; });
   }
   function syncMd(){
-    if(!root()) return Promise.resolve();
+    /* Learn only writes nothing into anybody's project: no LEARN.md, no tags */
+    if(!root() || solo()) return Promise.resolve();
     /* written only when it changed, so opening Learn does not touch the project */
     return Promise.all([waiting(), readText(DIR + '/LEARN.md')]).then(function(r){
       var md = learnMd(r[0]);
@@ -248,7 +254,10 @@
   }
 
   /* ------------------------------------------------------------ choosing the next piece */
-  function bankFor(skill){ return BANK.filter(function(t){ return t.skill === skill; })[0]; }
+  function bankFor(skill){
+    var all = BANK.filter(function(t){ return t.skill === skill; });
+    return (solo() && all.filter(function(t){ return t.solo; })[0]) || all.filter(function(t){ return !t.solo; })[0] || all[0];
+  }
   function doorFor(n){ return BANK.filter(function(t){ return t.door === n; })[0]; }
 
   function pick(){
@@ -260,6 +269,7 @@
       var t = bankFor(w[0]);
       if(t) return Promise.resolve({source: 'bank', review: true, id: t.id, skill: t.skill});
     }
+    if(solo()){ var b0 = bankFor(c.id); return Promise.resolve(b0 ? {source: 'bank', id: b0.id, skill: b0.skill} : null); }
     return tags().then(function(list){
       var st = c.stage;
       var mine = list.filter(function(t){
@@ -275,7 +285,7 @@
   /* a practice piece gives way the moment your own project has one for the
      same skill, because your own code is the point */
   function better(w){
-    if(w.source !== 'bank' || w.review || w.door != null) return Promise.resolve(w);
+    if(solo() || w.source !== 'bank' || w.review || w.door != null) return Promise.resolve(w);
     return pick().then(function(p){ return p && p.source === 'project' ? p : w; });
   }
 
@@ -356,6 +366,30 @@
       ''
     ].join('\n');
     return write(answerPath(p), body, answerWhere(p));
+  }
+
+  /* 6.3: with no AI coder, OPE Chat marks the answer. It is the small model that
+     runs on this computer, so it is kinder and blunter than Claude Code, and the
+     card says so. */
+  function markWithChat(p, i, answer){
+    var q = [
+      'You are marking a beginner\'s answer in a coding course. Be fair and plain.',
+      'The question: ' + i.ask,
+      'A good answer covers: ' + (i.model || 'the point of the question'),
+      'Their answer: ' + answer,
+      '',
+      'Reply with PASS or FAIL on the first line on its own. Then two or three plain sentences saying what they got right and what they missed. Pass them if they understood it, even if the wording is rough.'
+    ].join('\n');
+    return call('chat', {question: q, code: i.code || '', file: i.where, project: 'OPE Course'}).then(function(r){
+      var text = String((r && r.answer) || '').trim();
+      var pass = /^\s*(pass|correct|right)\b/i.test(text);
+      var why = text.replace(/^\s*(pass|fail|correct|wrong)\b[:.\s-]*/i, '').trim();
+      return readText(answerPath(p), answerWhere(p)).then(function(have){
+        var body = (have || '').replace(/^Verdict:.*$/m, 'Verdict: ' + (pass ? 'pass' : 'fail')) +
+          '\n\n## Why\n' + (why || text) + '\n\nMarked by OPE Chat, the small model on this computer.\n';
+        return write(answerPath(p), body, answerWhere(p));
+      });
+    });
   }
 
   function testArgs(p){
@@ -443,20 +477,25 @@
   function render(){
     var box = $('learn');
     if(!box || !L.data) return;
-    if(!root()){ box.innerHTML = '<div class="lrn"><h1>LEARN</h1><p class="under">Open a project first. You learn on your own code.</p></div>'; return; }
-    var on = mode() === 'learn';
+    var now = root() ? mode() : 'none';
+    var pick3 = function(id, label){
+      return '<button type="button" role="radio" data-mode="' + id + '" aria-checked="' + (now === id) + '" class="' + (now === id ? 'on' : '') + '">' + label + '</button>';
+    };
     var head = '<div class="lrn"><h1>LEARN</h1>'+
-      '<div class="modes" role="radiogroup" aria-label="How OPE works in this project">'+
-        '<button type="button" role="radio" data-mode="build" aria-checked="'+!on+'" class="'+(on ? '' : 'on')+'">Building</button>'+
-        '<button type="button" role="radio" data-mode="learn" aria-checked="'+on+'" class="'+(on ? 'on' : '')+'">Learning while building</button>'+
+      '<div class="modes" role="radiogroup" aria-label="How OPE works">'+
+        pick3('build', 'Building') + pick3('learn', 'Learning while building') + pick3('solo', 'Learn only')+
       '</div>';
-    if(!on){
-      box.innerHTML = head + '<p class="under">Building: OPE works as it always has. Switch to Learning while building and your AI coder starts leaving small pieces of this project for you, each with a test.</p></div>';
+    if(!root()){
+      box.innerHTML = head + '<p class="under">No project open. Building and Learning while building both need one. <b>Learn only</b> does not: press it and OPE makes an OPE Course folder on your Desktop, opens it, and teaches you to code from there.</p></div>';
+      wire(); return;
+    }
+    if(!learning()){
+      box.innerHTML = head + '<p class="under">Building: OPE works as it always has. Learning while building leaves small pieces of this project for you, each with a test. Learn only teaches you the whole course with no project at all.</p></div>';
       wire(); return;
     }
     syncMd().catch(function(){});
     var m = me(), c = current();
-    if(!c){ box.innerHTML = head + '<p class="under">Every stage is passed. You can review and reject an AI\'s code and say why.</p></div>'; wire(); return; }
+    if(!c){ box.innerHTML = head + '<p class="under">Every part is passed. You can review and reject an AI\'s code and say why.</p></div>'; wire(); return; }
     var st = stageOf(c.stage), inStage = st.skills.filter(function(k){ return m.passed[k.id]; }).length;
     var html = head+
       '<div class="where2"><b>Part ' + st.n + ' ' + esc(st.name) + '</b><span>You can ' + esc(st.can) + ' once this part is passed.</span></div>'+
@@ -521,11 +560,14 @@
         '<div class="acts3"><button class="btn" type="button" id="lOpen">' + (i.folder ? 'Open the folder' : 'Open ' + esc(i.where.split('/').pop())) + '</button>';
       if(explain){
         if(v && v.state === 'waiting'){
-          html += '</div><p class="wait">Sent. Tell your AI coder: <b>grade my OPE answer</b>. The verdict shows here when it has.</p>';
+          html += solo()
+            ? '</div><p class="wait">OPE Chat is reading it…</p>'
+            : '</div><p class="wait">Sent. Tell your AI coder: <b>grade my OPE answer</b>. The verdict shows here when it has.</p>';
         } else {
           if(v && v.state === 'fail') html += '</div><p class="bad">Not yet.</p>' + (v.why ? '<pre class="why">' + esc(v.why) + '</pre>' : '') + '<div class="acts3">';
           html += '</div><textarea id="lAns" rows="6" placeholder="Explain it in your own words."></textarea>'+
-            '<div class="acts3"><button class="btn go" type="button" id="lSend">Send to my AI coder</button>';
+            (solo() ? '<p class="small">OPE Chat marks this one. It is the small model on this computer, not your AI coder, so it is quick and a little rough.</p>' : '')+
+            '<div class="acts3"><button class="btn go" type="button" id="lSend">' + (solo() ? 'Have OPE Chat mark it' : 'Send to my AI coder') + '</button>';
         }
         if(v && v.state === 'pass') html = '<p class="k">PASSED</p><h2>' + esc(i.title) + '</h2>' + (v.why ? '<pre class="why">' + esc(v.why) + '</pre>' : '') + '<div class="acts3"><button class="btn go" type="button" id="lNext">Next piece</button>';
       } else {
@@ -543,7 +585,15 @@
       if(q('lRun')) q('lRun').onclick = function(){ L.note = null; saveEd(p).then(function(){ check(p); }); };
       if(q('lSend')) q('lSend').onclick = function(){
         var t = q('lAns').value.trim(); if(t.length < 10) return q('lAns').focus();
-        sendAnswer(p, i, t).then(render);
+        var b = q('lSend'); b.disabled = true; b.textContent = solo() ? 'OPE Chat is reading it…' : 'Sending…';
+        sendAnswer(p, i, t)
+          .then(function(){ return solo() ? markWithChat(p, i, t) : null; })
+          .then(render)
+          .catch(function(e){
+            b.disabled = false; b.textContent = 'Have OPE Chat mark it';
+            L.note = {head: 'OPE CHAT COULD NOT MARK IT', text: e.message + '\n\nOpen OPE Chat on the right and set its model up, then press the button again. Your answer is saved.', cls: 'why'};
+            render();
+          });
       };
       if(q('lNext')) q('lNext').onclick = function(){ L.note = null; pass(p).then(render); };
       if(q('lSkip')) q('lSkip').onclick = function(){
@@ -650,13 +700,25 @@
   }
 
   function setMode(v){
-    L.data.modes[root()] = v;
+    /* Learn only has no project of its own, so the course folder becomes one:
+       its files and its history are then there to look at, and Part 0's git
+       milestones have a real history to read. */
+    if(v === 'solo'){
+      return course().then(function(path){
+        return Promise.resolve(window.OPE.openRoot(path)).then(function(){
+          L.data.modes[path] = 'solo';
+          window.OPE.showLearn();
+          return keep();
+        });
+      }).then(render).catch(function(e){ OPEBridge.report(e.message); });
+    }
+    if(root()) L.data.modes[root()] = v;
     return keep().then(function(){ return v === 'learn' ? course().then(hookAgents) : null; }).then(syncMd).then(render)
       .catch(function(e){ OPEBridge.report(e.message); });
   }
 
   /* ------------------------------------------------------------ in and out */
-  function show(){ L.open = true; return (L.data ? Promise.resolve() : load()).then(function(){ return mode() === 'learn' ? course() : null; }).then(render); }
+  function show(){ L.open = true; return (L.data ? Promise.resolve() : load()).then(function(){ return learning() ? course() : null; }).then(render); }
   function hide(){ L.open = false; }
   var redraw = null;
   OPEBridge.onChange(function(ev){

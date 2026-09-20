@@ -989,5 +989,13 @@
       if(line && S.editor){ S.editor.revealLineInCenter(line); S.editor.setPosition({lineNumber: line, column: 1}); S.editor.focus(); }
     });
   }
-  window.OPE = {state: S, openRoot: openRoot, openFile: openAt};
+  /* Learn only opens the course folder as the project; opening a folder swaps the
+     view, so Learn asks for its own view back afterwards */
+  function showLearn(){
+    document.querySelectorAll('.rail .ico').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-view') === 'learn'); });
+    S.path = ''; setDirty(false);
+    $('tabName').textContent = 'Learn';
+    show('learn');
+  }
+  window.OPE = {state: S, openRoot: openRoot, openFile: openAt, showLearn: showLearn};
 })();
