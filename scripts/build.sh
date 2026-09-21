@@ -7,7 +7,8 @@ here=${0:a:h}
 root=${here:h}
 build="$root/build"
 app="$build/OPE.app"
-version=$(cd "$root" && git describe --tags --abbrev=0 2>/dev/null || echo "1.0")
+# the latest tag, or VERSION=1.6.1 to stamp a test build without tagging
+version=${VERSION:-$(cd "$root" && git describe --tags --abbrev=0 2>/dev/null || echo "1.0")}
 version=${version#v}
 
 echo "1/5 editor"

@@ -21,8 +21,8 @@ its window closes, has a Help menu, and opens more than one project at once.
 3a A folder dropped on the Dock icon, or opened with OPE from Finder, opens as a project.
 4 none
 4a Settings on ⌘, and a View menu: Enter Full Screen, bigger and smaller text, show and hide the side panel.
-5 Decide: OPE is black by design, so it is already dark. Should it turn white when the Mac is in light mode, or stay black always?
-5a Parked until 5 is decided.
+5 Decided: OPE stays black always, whatever the Mac is set to.
+5a Nothing to build.
 6 none
 6a Closing the window keeps OPE in the Dock, and clicking the Dock icon brings it back.
 7 none
