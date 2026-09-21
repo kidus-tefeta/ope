@@ -10,7 +10,7 @@ OPE is already native, signed and notarized, but it lacks Mac manners. It
 updates itself and says when a new version is ready, has a File menu with Open
 Project and Open Recent, opens a folder dropped on its Dock icon or chosen with
 Open With in Finder, has Settings on ⌘, and a View menu with full screen, text
-size and the side panel, follows the Mac into dark mode, stays in the Dock when
+size and the side panel, stays in the Dock when
 its window closes, has a Help menu, and opens more than one project at once.
 
 1 none
@@ -21,8 +21,8 @@ its window closes, has a Help menu, and opens more than one project at once.
 3a A folder dropped on the Dock icon, or opened with OPE from Finder, opens as a project.
 4 none
 4a Settings on ⌘, and a View menu: Enter Full Screen, bigger and smaller text, show and hide the side panel.
-5 none
-5a Dark mode that follows the Mac.
+5 Decide: OPE is black by design, so it is already dark. Should it turn white when the Mac is in light mode, or stay black always?
+5a Parked until 5 is decided.
 6 none
 6a Closing the window keeps OPE in the Dock, and clicking the Dock icon brings it back.
 7 none

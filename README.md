@@ -21,6 +21,9 @@ OPE into Applications. It is signed and notarized by Apple. OPE needs macOS 13 o
 newer and git, which comes with Apple's command line tools
 (`xcode-select --install`).
 
+On a Mac, OPE keeps itself up to date: when a new version is out it says so, and
+one press installs it. **OPE, Check for Updates** asks straight away.
+
 **Windows:** [**Download OPE-Setup.exe**](../../releases/latest/download/OPE-Setup.exe)
 and run it. OPE installs for you alone, no admin needed, and adds a Start menu and
 desktop shortcut. It is not code signed yet, so Windows SmartScreen may say it
@@ -79,6 +82,12 @@ description and you write it. Pick planning and the AI thinks it through with yo
 a few sharp ideas and questions at a time, until you say done; then it writes the
 description from the talk (or you do) and makes the tasks. While you are still
 talking, the project shows in OPE as **planning**, with no code expected yet.
+
+**⌘1 to ⌘9** jump to the first nine projects in the list, the way Claude Code jumps
+between chats (Ctrl 1 to 9 on Windows). Hold ⌘ a moment and the numbers show. On a
+Mac, **⌘N** opens a second window for another project and **⌘T** a tab, **⌘O**
+opens a folder, **File, Open Recent** has the last few, and a folder dropped on
+OPE in the Dock opens as a project.
 
 The numbers also come out of the project's own history. Every save the method makes is
 written as `1.2: what it does`, so a version appears in OPE on its own, including
