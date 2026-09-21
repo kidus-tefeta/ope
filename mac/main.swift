@@ -738,6 +738,7 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
   /* only the first window of a launch goes back to the last project; a new one
      starts empty, or on the folder it was opened for */
   var restoreLast = false
+  weak var web: OPEWebView?
   init(_ p: Project) { project = p }
 
   func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage,
@@ -885,6 +886,14 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
       let s = Term.shared.at(root)
       reply(["open": s != nil, "running": s?.running ?? false, "cwd": root])
 
+    /* where the page's top row is, and which parts of it are buttons */
+    case "dragZones":
+      web?.band = CGFloat(body["band"] as? Double ?? 0)
+      web?.holes = (body["holes"] as? [[Double]] ?? []).compactMap { h in
+        h.count == 4 ? NSRect(x: h[0], y: h[1], width: h[2], height: h[3]) : nil
+      }
+      reply(["ok": true])
+
     case "copy":
       NSPasteboard.general.clearContents()
       NSPasteboard.general.setString(body["text"] as? String ?? "", forType: .string)
@@ -907,6 +916,37 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
 
 // ---------------------------------------------------------------- a window
 
+/* THE WINDOW MOVES BY ITS TOP ROW.
+
+   OPE draws its own title bar inside the page, and a web view keeps every
+   press for itself, so the window could not be dragged, not even to another
+   screen. The page tells this view where its top row is and which parts of it
+   are buttons; a press anywhere else in that row moves the window, and a
+   double press does what the Mac is set to do with a title bar. */
+final class OPEWebView: WKWebView {
+  var band: CGFloat = 0
+  var holes: [NSRect] = []
+
+  override func mouseDown(with e: NSEvent) {
+    let p = convert(e.locationInWindow, from: nil)
+    let x = p.x / pageZoom
+    let y = (isFlipped ? p.y : bounds.height - p.y) / pageZoom
+    if y >= 0 && y < band && !holes.contains(where: { $0.contains(NSPoint(x: x, y: y)) }) {
+      if e.clickCount == 2 {
+        switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+        case "Minimize": window?.performMiniaturize(nil)
+        case "None": break
+        default: window?.performZoom(nil)
+        }
+        return
+      }
+      window?.performDrag(with: e)
+      return
+    }
+    super.mouseDown(with: e)
+  }
+}
+
 /* ONE WINDOW, ONE PROJECT.
 
    Each window has its own web view, its own open folder and its own watch on
@@ -914,7 +954,7 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
    Mac does it everywhere else. ⌘N makes a new one, ⌘T makes it a tab. */
 final class ProjectWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {
   let window: NSWindow
-  let web: WKWebView
+  let web: OPEWebView
   let project = Project()
   let bridge: Bridge
   var onClose: ((ProjectWindow) -> Void)?
@@ -937,7 +977,7 @@ final class ProjectWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKU
     window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                       backing: .buffered, defer: false, screen: screen)
-    web = WKWebView(frame: .zero, configuration: cfg)
+    web = OPEWebView(frame: .zero, configuration: cfg)
     super.init()
 
     window.titlebarAppearsTransparent = true
@@ -982,6 +1022,7 @@ final class ProjectWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKU
       DispatchQueue.main.async { self?.fitUnderTabs() }
     }
     bridge.window = window
+    bridge.web = web
 
     project.onChange = { [weak self] paths in self?.emit(["paths": paths]) }
     web.load(URLRequest(url: HOME))

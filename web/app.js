@@ -1031,6 +1031,26 @@
   document.addEventListener('keyup', function(e){ if(e.key === 'Meta' || e.key === 'Control') hints(false); }, true);
   addEventListener('blur', function(){ hints(false); });
 
+  /* THE WINDOW MOVES BY ITS TOP ROW. A web view keeps every press, so the Mac
+     side is told where the top row is and which parts of it are buttons; a
+     press anywhere else there moves the window, to another screen if you like.
+     Only the Mac app needs this: Windows reads the drag area from the CSS. */
+  function dragZones(){
+    if(!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ope)) return;
+    var band = 40, holes = [];
+    Array.prototype.forEach.call(document.querySelectorAll('button, a, input, textarea, select, [role=button], [contenteditable=true], .xterm'), function(el){
+      var r = el.getBoundingClientRect();
+      if(r.width && r.height && r.top < band && r.bottom > 0 && getComputedStyle(el).visibility !== 'hidden')
+        holes.push([r.left, r.top, r.width, r.height]);
+    });
+    OPEBridge.call('dragZones', {band: band, holes: holes}).catch(function(){});
+  }
+  var dragTimer = null;
+  function dragSoon(){ clearTimeout(dragTimer); dragTimer = setTimeout(dragZones, 120); }
+  addEventListener('resize', dragSoon);
+  new MutationObserver(dragSoon).observe(document.body, {subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden']});
+  dragSoon();
+
   function learnView(){ var b = document.querySelector('.rail .ico[data-view="learn"]'); if(b) b.click(); }
 
   window.OPE = {state: S, openRoot: openRoot, openFile: openAt, showLearn: showLearn,
