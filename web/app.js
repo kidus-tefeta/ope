@@ -1000,5 +1000,40 @@
     $('tabName').textContent = 'Learn';
     show('learn');
   }
-  window.OPE = {state: S, openRoot: openRoot, openFile: openAt, showLearn: showLearn};
+  /* ------------------------------------------------------------ ⌘1 to ⌘9
+
+     The way Claude Code jumps between chats: ⌘1 is the first project in the
+     list, ⌘2 the second, up to ⌘9. Ctrl on Windows. Hold the key a moment and
+     the numbers show beside the projects. */
+  var MAC = /Mac/.test(navigator.platform);
+  function projectRows(){ return Array.prototype.slice.call(document.querySelectorAll('#projectList .libname')).slice(0, 9); }
+  function numberRows(){
+    projectRows().forEach(function(b, i){ b.setAttribute('data-key', (MAC ? '⌘' : 'Ctrl ') + (i + 1)); });
+  }
+  var hintTimer = null;
+  function hints(on){
+    clearTimeout(hintTimer);
+    if(!on){ $('projectList').classList.remove('keys'); return; }
+    hintTimer = setTimeout(function(){ numberRows(); $('projectList').classList.add('keys'); }, 350);
+  }
+  document.addEventListener('keydown', function(e){
+    var mod = MAC ? e.metaKey : e.ctrlKey;
+    if(e.key === (MAC ? 'Meta' : 'Control')) return hints(true);
+    if(!mod || e.altKey || e.shiftKey || !/^[1-9]$/.test(e.key)) { hints(false); return; }
+    var row = projectRows()[+e.key - 1];
+    if(!row) return;
+    e.preventDefault(); e.stopPropagation(); hints(false);
+    var path = row.getAttribute('data-plain');
+    /* the one already open stays open: the key goes to a project, it never folds it */
+    if(path && path === S.root && !S.innerShut) return;
+    row.click();
+  }, true);
+  document.addEventListener('keyup', function(e){ if(e.key === 'Meta' || e.key === 'Control') hints(false); }, true);
+  addEventListener('blur', function(){ hints(false); });
+
+  function learnView(){ var b = document.querySelector('.rail .ico[data-view="learn"]'); if(b) b.click(); }
+
+  window.OPE = {state: S, openRoot: openRoot, openFile: openAt, showLearn: showLearn,
+                /* what the Mac menus reach for */
+                fold: fold, pick: pickProject, learn: learnView};
 })();

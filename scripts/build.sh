@@ -25,14 +25,23 @@ done
 iconutil -c icns "$build/icon.iconset" -o "$build/AppIcon.icns"
 
 echo "3/5 binary"
-swiftc -O -target arm64-apple-macos13 "$root/mac/main.swift" -o "$build/OPE-arm64" -framework Cocoa -framework WebKit -framework CoreServices -framework Vision
-swiftc -O -target x86_64-apple-macos13 "$root/mac/main.swift" -o "$build/OPE-x86_64" -framework Cocoa -framework WebKit -framework CoreServices -framework Vision
+# Sparkle, the updater: fetched once, never committed
+sparkle="$build/vendor/Sparkle"
+if [ ! -d "$sparkle/Sparkle.framework" ]; then
+  mkdir -p "$sparkle"
+  curl -fsSL -o "$build/vendor/sparkle.tar.xz" https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz
+  tar -xf "$build/vendor/sparkle.tar.xz" -C "$sparkle"
+fi
+link=(-framework Cocoa -framework WebKit -framework CoreServices -framework Vision -F "$sparkle" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks)
+swiftc -O -target arm64-apple-macos13 "$root/mac/main.swift" -o "$build/OPE-arm64" $link
+swiftc -O -target x86_64-apple-macos13 "$root/mac/main.swift" -o "$build/OPE-x86_64" $link
 lipo -create "$build/OPE-arm64" "$build/OPE-x86_64" -output "$build/OPE"
 
 echo "4/5 bundle"
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$app/Contents/Frameworks"
 cp "$build/OPE" "$app/Contents/MacOS/OPE"
+cp -R "$sparkle/Sparkle.framework" "$app/Contents/Frameworks/"
 cp "$build/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
 cp -R "$root/web" "$app/Contents/Resources/web"
 cp "$root/prompt/OPE-PROMPT.md" "$app/Contents/Resources/OPE-PROMPT.md"
@@ -54,6 +63,18 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSHumanReadableCopyright</key><string>MIT licence. Out Past Engineering.</string>
+  <key>SUFeedURL</key><string>https://github.com/kidus-tefeta/ope/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>jGfunADICLTgLyQWNyc+Df19574uv0/e3WeT5YEdnBg=</string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>Project folder</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>public.folder</string></array>
+    </dict>
+  </array>
 </dict>
 </plist>
 PLIST

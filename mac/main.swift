@@ -17,6 +17,7 @@ import UniformTypeIdentifiers
 #if arch(arm64) && canImport(FoundationModels)
 import FoundationModels
 #endif
+import Sparkle
 
 let SCHEME = "ope"
 let HOME = URL(string: "ope://app/index.html")!
@@ -618,7 +619,7 @@ final class Shell {
     flushing = false
     lock.unlock()
     if d.isEmpty { return }
-    Term.shared.emit(["pty": ["data": d.base64EncodedString()]])
+    Term.shared.emit(["pty": ["data": d.base64EncodedString()], "root": root])
   }
 
   private func ended() {
@@ -628,7 +629,7 @@ final class Shell {
     lock.lock(); live = false; lock.unlock()
     DispatchQueue.main.async {
       self.flush()
-      Term.shared.emit(["pty": ["exit": code]])
+      Term.shared.emit(["pty": ["exit": code], "root": self.root])
       Term.shared.forget(self.root)
     }
   }
@@ -734,6 +735,9 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
   let course: Project = { let c = Project(); c.root = Learn.course; return c }()
   func at(_ body: [String: Any]) -> Project { (body["where"] as? String) == "course" ? course : project }
   weak var window: NSWindow?
+  /* only the first window of a launch goes back to the last project; a new one
+     starts empty, or on the folder it was opened for */
+  var restoreLast = false
   init(_ p: Project) { project = p }
 
   func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage,
@@ -747,12 +751,13 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
     switch cmd {
     case "hello":
       var root = project.root?.path ?? ""
-      if root.isEmpty, let last = UserDefaults.standard.string(forKey: "last"),
+      if root.isEmpty, restoreLast, let last = UserDefaults.standard.string(forKey: "last"),
          FileManager.default.fileExists(atPath: last), let opened = try? project.open(last) { root = opened }
       reply(["kind": "mac", "root": root, "recent": project.recent, "library": project.library])
+      titled()
 
     case "open":
-      do { reply(["root": try project.open(body["path"] as? String ?? ""), "library": project.library]) } catch let e as OPEError { fail(e.message) } catch { fail("\(error)") }
+      do { reply(["root": try project.open(body["path"] as? String ?? ""), "library": project.library]); titled() } catch let e as OPEError { fail(e.message) } catch { fail("\(error)") }
 
     case "pick":
       let panel = NSOpenPanel()
@@ -763,7 +768,7 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
       panel.message = "Pick the folder your AI built the project in."
       let done: (NSApplication.ModalResponse) -> Void = { r in
         guard r == .OK, let url = panel.url else { reply(["root": ""]); return }
-        do { reply(["root": try self.project.open(url.path), "library": self.project.library]) } catch { fail("That folder could not be opened.") }
+        do { reply(["root": try self.project.open(url.path), "library": self.project.library]); self.titled() } catch { fail("That folder could not be opened.") }
       }
       if let w = window { panel.beginSheetModal(for: w, completionHandler: done) } else { done(panel.runModal()) }
 
@@ -889,74 +894,134 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
       fail("Unknown command \(cmd)")
     }
   }
+
+  /* the window is named for its project, so the Window menu and the tabs say which is which */
+  func titled() {
+    guard let w = window else { return }
+    let name = project.root?.lastPathComponent ?? "OPE"
+    w.title = name
+    w.tab.title = name
+    if let r = project.root { w.representedURL = r; NSDocumentController.shared.noteNewRecentDocumentURL(r) }
+  }
 }
 
-// ---------------------------------------------------------------- the window
+// ---------------------------------------------------------------- a window
 
-final class App: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {
-  var window: NSWindow!
-  var web: WKWebView!
+/* ONE WINDOW, ONE PROJECT.
+
+   Each window has its own web view, its own open folder and its own watch on
+   that folder, so two projects can sit side by side, or as tabs, the way the
+   Mac does it everywhere else. ⌘N makes a new one, ⌘T makes it a tab. */
+final class ProjectWindow: NSObject, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate {
+  let window: NSWindow
+  let web: WKWebView
   let project = Project()
-  lazy var bridge = Bridge(project)
+  let bridge: Bridge
+  var onClose: ((ProjectWindow) -> Void)?
+  var watchLayout: NSKeyValueObservation?
 
-  func applicationDidFinishLaunching(_ n: Notification) {
-    menus()
+  init(open path: String?, restoreLast: Bool, near: NSWindow?) {
+    bridge = Bridge(project)
+    bridge.restoreLast = restoreLast && path == nil
+    if let p = path { _ = try? project.open(p) }
+
     let cfg = WKWebViewConfiguration()
     cfg.setURLSchemeHandler(Bundled(), forURLScheme: SCHEME)
     cfg.userContentController.addScriptMessageHandler(bridge, contentWorld: .page, name: "ope")
     cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
     /* the laptop's own screen when there is one */
-    let screen = NSScreen.screens.first(where: { $0.localizedName.localizedCaseInsensitiveContains("built-in") })
+    let screen = near?.screen ?? NSScreen.screens.first(where: { $0.localizedName.localizedCaseInsensitiveContains("built-in") })
       ?? NSScreen.main ?? NSScreen.screens[0]
     let size = NSSize(width: min(1480, screen.visibleFrame.width - 80), height: min(920, screen.visibleFrame.height - 60))
     window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                       backing: .buffered, defer: false, screen: screen)
+    web = WKWebView(frame: .zero, configuration: cfg)
+    super.init()
+
     window.titlebarAppearsTransparent = true
     window.titleVisibility = .hidden
     window.backgroundColor = .black
     window.minSize = NSSize(width: 760, height: 520)
-    window.title = "OPE"
+    window.title = project.root?.lastPathComponent ?? "OPE"
+    window.isReleasedWhenClosed = false
     window.delegate = self
-    window.setFrameAutosaveName("OPEMain")
-    if !window.setFrameUsingName("OPEMain") {
-      let f = screen.visibleFrame
-      window.setFrameOrigin(NSPoint(x: f.midX - size.width / 2, y: f.midY - size.height / 2))
+    window.collectionBehavior.insert(.fullScreenPrimary)
+    /* tabs: the Mac's own, following the person's setting in System Settings */
+    window.tabbingIdentifier = "OPE"
+    window.tabbingMode = .automatic
+
+    if let near = near {
+      /* a new window steps down and right from the one it came from */
+      window.setFrame(near.frame, display: false)
+      window.setFrameTopLeftPoint(window.cascadeTopLeft(from: NSPoint(x: near.frame.minX, y: near.frame.maxY)))
+    } else {
+      window.setFrameAutosaveName("OPEMain")
+      if !window.setFrameUsingName("OPEMain") {
+        let f = screen.visibleFrame
+        window.setFrameOrigin(NSPoint(x: f.midX - size.width / 2, y: f.midY - size.height / 2))
+      }
     }
 
-    web = WKWebView(frame: .zero, configuration: cfg)
     web.setValue(false, forKey: "drawsBackground")
     web.navigationDelegate = self
     web.uiDelegate = self
     if #available(macOS 13.3, *) { web.isInspectable = true }
-    window.contentView = web
+    web.pageZoom = App.zoom
+    /* the page runs under the title bar, where OPE draws its own top row. When
+       the Mac shows its tab bar there too, the page steps down by exactly that
+       much, so the tabs never cover the column headings */
+    let holder = NSView()
+    holder.autoresizesSubviews = true
+    web.autoresizingMask = [.width, .height]
+    holder.addSubview(web)
+    window.contentView = holder
+    web.frame = holder.bounds
+    watchLayout = window.observe(\.contentLayoutRect, options: [.initial, .new]) { [weak self] _, _ in
+      DispatchQueue.main.async { self?.fitUnderTabs() }
+    }
     bridge.window = window
 
-    project.onChange = { [weak self] paths in
-      guard let self = self,
-            let data = try? JSONSerialization.data(withJSONObject: ["paths": paths]),
-            let json = String(data: data, encoding: .utf8) else { return }
-      self.web.evaluateJavaScript("window.OPEBridge && OPEBridge.emit(\(json))", completionHandler: nil)
-    }
-
-    /* the terminal's output, gathered up and sent the same way */
-    Term.shared.push = { [weak self] ev in
-      guard let self = self,
-            let data = try? JSONSerialization.data(withJSONObject: ev),
-            let json = String(data: data, encoding: .utf8) else { return }
-      self.web.evaluateJavaScript("window.OPEBridge && OPEBridge.emit(\(json))", completionHandler: nil)
-    }
-
+    project.onChange = { [weak self] paths in self?.emit(["paths": paths]) }
     web.load(URLRequest(url: HOME))
-    window.makeKeyAndOrderFront(nil)
-    NSApp.activate(ignoringOtherApps: true)
   }
 
-  func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
+  /* anything the Mac side has to tell the page */
+  func emit(_ ev: [String: Any]) {
+    guard let data = try? JSONSerialization.data(withJSONObject: ev),
+          let json = String(data: data, encoding: .utf8) else { return }
+    web.evaluateJavaScript("window.OPEBridge && OPEBridge.emit(\(json))", completionHandler: nil)
+  }
 
-  /* no shell outlives the app */
-  func applicationWillTerminate(_ n: Notification) { Term.shared.closeAll() }
+  /* ask the page to do something it already knows how to do */
+  func page(_ js: String) { web.evaluateJavaScript("window.OPE && (\(js))", completionHandler: nil) }
+
+  /* open a folder here: the page does the rest the same way as its own Open */
+  func show(_ path: String) {
+    guard let data = try? JSONSerialization.data(withJSONObject: [path]),
+          let arr = String(data: data, encoding: .utf8) else { return }
+    page("OPE.openRoot(\(arr)[0])")
+  }
+
+  var empty: Bool { project.root == nil }
+
+  func fitUnderTabs() {
+    guard let holder = window.contentView else { return }
+    let gap = holder.bounds.height - window.contentLayoutRect.maxY
+    let tabs = window.tabGroup?.isTabBarVisible == true && !window.styleMask.contains(.fullScreen)
+    /* with tabs, the whole page starts under them, the way Safari does it */
+    let inset = tabs ? max(0, gap) : 0
+    let want = NSRect(x: 0, y: 0, width: holder.bounds.width, height: holder.bounds.height - inset)
+    if web.frame != want { web.frame = want }
+  }
+
+  func windowWillClose(_ n: Notification) {
+    watchLayout = nil
+    project.onChange = nil
+    web.configuration.userContentController.removeScriptMessageHandler(forName: "ope", contentWorld: .page)
+    onClose?(self)
+  }
 
   /* A PAGE'S FILE PICKER DOES NOTHING IN A WEB VIEW UNLESS THE APP OPENS IT.
 
@@ -973,38 +1038,325 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigation
     panel.prompt = "Add"
     panel.beginSheetModal(for: window) { r in completionHandler(r == .OK ? panel.urls : nil) }
   }
+}
+
+// ---------------------------------------------------------------- the app
+
+final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
+  var windows: [ProjectWindow] = []
+  var launched = false
+  var pending: [String] = []
+  let recentMenu = NSMenu(title: "Open Recent")
+
+  /* text size, the same in every window, kept between launches */
+  static var zoom: CGFloat {
+    get { let z = UserDefaults.standard.double(forKey: "zoom"); return z > 0 ? CGFloat(z) : 1 }
+    set { UserDefaults.standard.set(Double(newValue), forKey: "zoom") }
+  }
+
+  func applicationDidFinishLaunching(_ n: Notification) {
+    menus()
+    Updates.shared.start()
+    launched = true
+    /* folders handed over at launch (dropped on the Dock icon, Open With) open
+       instead of the last project; otherwise the first window comes back to it */
+    if pending.isEmpty { make(nil, restoreLast: true) }
+    else { pending.forEach { make($0, restoreLast: false) }; pending = [] }
+
+    /* the terminal's output goes to the window looking at that folder */
+    Term.shared.push = { [weak self] ev in
+      guard let self = self else { return }
+      let root = ev["root"] as? String
+      self.windows.filter { root == nil || $0.project.root?.path == root }.forEach { $0.emit(ev) }
+    }
+    NSApp.activate(ignoringOtherApps: true)
+  }
+
+  @discardableResult
+  func make(_ path: String?, restoreLast: Bool = false, tab: Bool = false) -> ProjectWindow {
+    let front = NSApp.keyWindow ?? windows.last?.window
+    let w = ProjectWindow(open: path, restoreLast: restoreLast, near: windows.isEmpty ? nil : front)
+    w.onClose = { [weak self] closed in self?.windows.removeAll { $0 === closed } }
+    windows.append(w)
+    if tab, let front = front { front.addTabbedWindow(w.window, ordered: .above) }
+    w.window.makeKeyAndOrderFront(nil)
+    return w
+  }
+
+  /* the window in front, or a new one if there is none */
+  var current: ProjectWindow {
+    if let k = NSApp.keyWindow ?? NSApp.mainWindow, let w = windows.first(where: { $0.window === k }) { return w }
+    return windows.last ?? make(nil)
+  }
+
+  /* a folder goes to a window already showing it, then to an empty window,
+     and only then to a new one */
+  func openFolder(_ path: String) {
+    let real = Project.real((path as NSString).expandingTildeInPath)
+    if let w = windows.first(where: { $0.project.root?.path == real }) { w.window.makeKeyAndOrderFront(nil); return }
+    if let w = windows.first(where: { $0.empty }), w.window.isVisible { w.show(real); w.window.makeKeyAndOrderFront(nil); return }
+    make(real)
+  }
+
+  /* DROPPED ON THE DOCK ICON, OR OPEN WITH IN FINDER. Only folders are projects. */
+  func application(_ sender: NSApplication, open urls: [URL]) {
+    let folders = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }.map { $0.path }
+    if !launched { pending += folders; return }
+    folders.forEach(openFolder)
+  }
+
+  /* closing the last window leaves OPE in the Dock, like any Mac app */
+  func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { false }
+
+  /* and the Dock icon brings a window back */
+  func applicationShouldHandleReopen(_ s: NSApplication, hasVisibleWindows: Bool) -> Bool {
+    if !hasVisibleWindows { if let w = windows.first { w.window.makeKeyAndOrderFront(nil) } else { make(nil, restoreLast: true) } }
+    return true
+  }
+
+  /* no shell outlives the app */
+  func applicationWillTerminate(_ n: Notification) { Term.shared.closeAll() }
+
+  // ------------------------------------------------------------ menu actions
+
+  @objc func newWindow(_ s: Any?) { make(nil) }
+  @objc func newTab(_ s: Any?) { make(nil, tab: true) }
+
+  @objc func openProject(_ s: Any?) {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    panel.allowsMultipleSelection = false
+    panel.prompt = "Open"
+    panel.message = "Pick the folder your AI built the project in."
+    let done: (NSApplication.ModalResponse) -> Void = { [weak self] r in
+      guard r == .OK, let url = panel.url else { return }
+      self?.openFolder(url.path)
+    }
+    if let k = NSApp.keyWindow { panel.beginSheetModal(for: k, completionHandler: done) } else { done(panel.runModal()) }
+  }
+
+  @objc func openRecent(_ item: NSMenuItem) {
+    guard let path = item.representedObject as? String else { return }
+    if FileManager.default.fileExists(atPath: path) { openFolder(path) }
+    else {
+      Project().recent = Project().recent.filter { $0 != path }
+      NSSound.beep()
+    }
+  }
+
+  @objc func clearRecent(_ s: Any?) { Project().recent = [] }
+
+  /* rebuilt each time it opens, from the same list the page shows */
+  func menuNeedsUpdate(_ menu: NSMenu) {
+    guard menu === recentMenu else { return }
+    menu.removeAllItems()
+    let recent = Project().recent.filter { FileManager.default.fileExists(atPath: $0) }
+    for path in recent {
+      let item = NSMenuItem(title: (path as NSString).lastPathComponent, action: #selector(openRecent(_:)), keyEquivalent: "")
+      item.target = self
+      item.representedObject = path
+      item.toolTip = path
+      let icon = NSWorkspace.shared.icon(forFile: path); icon.size = NSSize(width: 16, height: 16)
+      item.image = icon
+      menu.addItem(item)
+    }
+    if !recent.isEmpty { menu.addItem(.separator()) }
+    let clear = NSMenuItem(title: "Clear Menu", action: recent.isEmpty ? nil : #selector(clearRecent(_:)), keyEquivalent: "")
+    clear.target = self
+    menu.addItem(clear)
+  }
+
+  @objc func biggerText(_ s: Any?) { setZoom(min(2, App.zoom + 0.1)) }
+  @objc func smallerText(_ s: Any?) { setZoom(max(0.6, App.zoom - 0.1)) }
+  @objc func actualSize(_ s: Any?) { setZoom(1) }
+  func setZoom(_ z: CGFloat) {
+    App.zoom = (z * 10).rounded() / 10
+    windows.forEach { $0.web.pageZoom = App.zoom }
+  }
+
+  @objc func toggleProjects(_ s: Any?) { current.page("OPE.fold('projects')") }
+  @objc func toggleChat(_ s: Any?) { current.page("OPE.fold('chat')") }
+
+  @objc func showSettings(_ s: Any?) { Settings.shared.show() }
+
+  @objc func helpReadme(_ s: Any?) { NSWorkspace.shared.open(URL(string: "https://github.com/kidus-tefeta/ope#readme")!) }
+  @objc func helpCourse(_ s: Any?) { current.page("OPE.learn()") }
+  @objc func helpIssue(_ s: Any?) { NSWorkspace.shared.open(URL(string: "https://github.com/kidus-tefeta/ope/issues")!) }
+
+  // ------------------------------------------------------------ the menus
 
   /* Copy, paste and undo only reach the code view if the menu has them */
   func menus() {
     let main = NSMenu()
+    func add(_ m: NSMenu, _ title: String, _ action: Selector?, _ key: String = "", _ mods: NSEvent.ModifierFlags = [.command], target: AnyObject? = nil) -> NSMenuItem {
+      let i = m.addItem(withTitle: title, action: action, keyEquivalent: key)
+      i.keyEquivalentModifierMask = mods
+      if let t = target { i.target = t }
+      return i
+    }
+
     let appItem = NSMenuItem(); main.addItem(appItem)
     let appMenu = NSMenu()
-    appMenu.addItem(withTitle: "About OPE", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+    _ = add(appMenu, "About OPE", #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
+    let upd = add(appMenu, "Check for Updates…", #selector(Updates.check(_:)), target: Updates.shared)
+    upd.isEnabled = true
     appMenu.addItem(.separator())
-    appMenu.addItem(withTitle: "Hide OPE", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-    appMenu.addItem(withTitle: "Quit OPE", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+    _ = add(appMenu, "Settings…", #selector(showSettings(_:)), ",", target: self)
+    appMenu.addItem(.separator())
+    _ = add(appMenu, "Hide OPE", #selector(NSApplication.hide(_:)), "h")
+    _ = add(appMenu, "Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option])
+    _ = add(appMenu, "Show All", #selector(NSApplication.unhideAllApplications(_:)))
+    appMenu.addItem(.separator())
+    _ = add(appMenu, "Quit OPE", #selector(NSApplication.terminate(_:)), "q")
     appItem.submenu = appMenu
+
+    let fileItem = NSMenuItem(); main.addItem(fileItem)
+    let file = NSMenu(title: "File")
+    _ = add(file, "New Window", #selector(newWindow(_:)), "n", target: self)
+    _ = add(file, "New Tab", #selector(newTab(_:)), "t", target: self)
+    file.addItem(.separator())
+    _ = add(file, "Open Project…", #selector(openProject(_:)), "o", target: self)
+    let recentItem = file.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "")
+    recentMenu.delegate = self
+    recentItem.submenu = recentMenu
+    file.addItem(.separator())
+    _ = add(file, "Close Window", #selector(NSWindow.performClose(_:)), "w")
+    fileItem.submenu = file
 
     let editItem = NSMenuItem(); main.addItem(editItem)
     let edit = NSMenu(title: "Edit")
-    edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-    let redo = edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
-    redo.keyEquivalentModifierMask = [.command, .shift]
+    _ = add(edit, "Undo", Selector(("undo:")), "z")
+    _ = add(edit, "Redo", Selector(("redo:")), "z", [.command, .shift])
     edit.addItem(.separator())
-    edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-    edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-    edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-    edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+    _ = add(edit, "Cut", #selector(NSText.cut(_:)), "x")
+    _ = add(edit, "Copy", #selector(NSText.copy(_:)), "c")
+    _ = add(edit, "Paste", #selector(NSText.paste(_:)), "v")
+    _ = add(edit, "Select All", #selector(NSText.selectAll(_:)), "a")
     editItem.submenu = edit
+
+    let viewItem = NSMenuItem(); main.addItem(viewItem)
+    let view = NSMenu(title: "View")
+    _ = add(view, "Show or Hide Projects", #selector(toggleProjects(_:)), "s", [.command, .control], target: self)
+    _ = add(view, "Show or Hide OPE Chat", #selector(toggleChat(_:)), "i", [.command, .option], target: self)
+    view.addItem(.separator())
+    _ = add(view, "Bigger Text", #selector(biggerText(_:)), "+", target: self)
+    _ = add(view, "Smaller Text", #selector(smallerText(_:)), "-", target: self)
+    _ = add(view, "Actual Size", #selector(actualSize(_:)), "0", target: self)
+    view.addItem(.separator())
+    _ = add(view, "Show Tab Bar", #selector(NSWindow.toggleTabBar(_:)))
+    _ = add(view, "Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])
+    viewItem.submenu = view
 
     let winItem = NSMenuItem(); main.addItem(winItem)
     let win = NSMenu(title: "Window")
-    win.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-    win.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+    _ = add(win, "Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")
+    _ = add(win, "Zoom", #selector(NSWindow.performZoom(_:)))
+    win.addItem(.separator())
+    _ = add(win, "Show Previous Tab", #selector(NSWindow.selectPreviousTab(_:)), "\t", [.control, .shift])
+    _ = add(win, "Show Next Tab", #selector(NSWindow.selectNextTab(_:)), "\t", [.control])
+    _ = add(win, "Merge All Windows", #selector(NSWindow.mergeAllWindows(_:)))
+    win.addItem(.separator())
+    _ = add(win, "Bring All to Front", #selector(NSApplication.arrangeInFront(_:)))
     winItem.submenu = win
+
+    /* the Help menu is also where the Mac puts its search of every menu */
+    let helpItem = NSMenuItem(); main.addItem(helpItem)
+    let help = NSMenu(title: "Help")
+    _ = add(help, "OPE Help", #selector(helpReadme(_:)), "?", target: self)
+    _ = add(help, "The Course", #selector(helpCourse(_:)), target: self)
+    help.addItem(.separator())
+    _ = add(help, "Report a Problem", #selector(helpIssue(_:)), target: self)
+    helpItem.submenu = help
+
     NSApp.mainMenu = main
     NSApp.windowsMenu = win
+    NSApp.helpMenu = help
   }
+}
+
+// ---------------------------------------------------------------- updates
+
+/* OPE KEEPS ITSELF UP TO DATE.
+
+   Sparkle, the updater nearly every Mac app outside the App Store uses. It
+   reads a feed that sits on the GitHub release beside the dmg, checks that the
+   new version is signed with OPE's own key before touching anything, and then
+   says so: download, install, relaunch. Nothing updates without the key. */
+final class Updates: NSObject, SPUUpdaterDelegate {
+  static let shared = Updates()
+  lazy var controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+
+  func start() { _ = controller }
+
+  var automatic: Bool {
+    get { controller.updater.automaticallyChecksForUpdates }
+    set { controller.updater.automaticallyChecksForUpdates = newValue }
+  }
+
+  @objc func check(_ s: Any?) { controller.checkForUpdates(s) }
+
+  /* a test feed, only when OPE is started with OPE_FEED set, never in normal use */
+  func feedURLString(for updater: SPUUpdater) -> String? { ProcessInfo.processInfo.environment["OPE_FEED"] }
+}
+
+// ---------------------------------------------------------------- settings
+
+/* ⌘, THE FEW THINGS THAT ARE SETTINGS.
+
+   Text size, and whether OPE looks for a new version by itself. Everything
+   else in OPE is a choice made where it is used, like Learning mode in Learn. */
+final class Settings: NSObject, NSWindowDelegate {
+  static let shared = Settings()
+  var window: NSWindow?
+  var sizeLabel: NSTextField?
+
+  func show() {
+    if let w = window { refresh(); w.makeKeyAndOrderFront(nil); return }
+    let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 200),
+                     styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    w.title = "Settings"
+    w.isReleasedWhenClosed = false
+    w.delegate = self
+
+    let stack = NSStackView()
+    stack.orientation = .vertical
+    stack.alignment = .leading
+    stack.spacing = 14
+    stack.edgeInsets = NSEdgeInsets(top: 24, left: 28, bottom: 24, right: 28)
+
+    let auto = NSButton(checkboxWithTitle: "Look for a new version of OPE by itself", target: self, action: #selector(toggleAuto(_:)))
+    auto.state = Updates.shared.automatic ? .on : .off
+    let now = NSButton(title: "Check Now", target: Updates.shared, action: #selector(Updates.check(_:)))
+    now.bezelStyle = .rounded
+    let row1 = NSStackView(views: [auto, now]); row1.spacing = 12
+
+    let label = NSTextField(labelWithString: "Text size")
+    let minus = NSButton(title: "Smaller", target: NSApp.delegate, action: #selector(App.smallerText(_:)))
+    let plus = NSButton(title: "Bigger", target: NSApp.delegate, action: #selector(App.biggerText(_:)))
+    let reset = NSButton(title: "Actual Size", target: NSApp.delegate, action: #selector(App.actualSize(_:)))
+    [minus, plus, reset].forEach { $0.bezelStyle = .rounded }
+    let size = NSTextField(labelWithString: "")
+    size.textColor = .secondaryLabelColor
+    sizeLabel = size
+    let row2 = NSStackView(views: [label, minus, plus, reset, size]); row2.spacing = 10
+
+    let note = NSTextField(wrappingLabelWithString: "Building or Learning is chosen for each project in Learn.")
+    note.textColor = .secondaryLabelColor
+    note.font = .systemFont(ofSize: 12)
+
+    [row1, row2, note].forEach { stack.addArrangedSubview($0) }
+    w.contentView = stack
+    w.center()
+    window = w
+    refresh()
+    NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in self?.refresh() }
+    w.makeKeyAndOrderFront(nil)
+  }
+
+  func refresh() { sizeLabel?.stringValue = "\(Int((App.zoom * 100).rounded()))%" }
+
+  @objc func toggleAuto(_ b: NSButton) { Updates.shared.automatic = b.state == .on }
 }
 
 if let i = CommandLine.arguments.firstIndex(of: "--install"), i + 1 < CommandLine.arguments.count {

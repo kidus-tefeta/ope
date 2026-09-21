@@ -322,3 +322,8 @@ html.win32 .top,html.linux .top{padding:0 146px 0 12px!important}
 .termbody .xterm{height:100%}
 .termbody .xterm-viewport::-webkit-scrollbar{width:8px}
 .termbody .xterm-viewport::-webkit-scrollbar-thumb{background:#1f2a31;border-radius:4px}
+
+/* ⌘1 to ⌘9: held down, the key for each project shows at its right */
+#projectList.keys .libname{position:relative}
+#projectList.keys .libname[data-key]::after{content:attr(data-key);position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-size:11px;color:var(--sub);border:1px solid var(--edge-dim);border-radius:4px;padding:0 5px;line-height:16px;background:var(--bg)}

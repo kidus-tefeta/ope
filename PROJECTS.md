@@ -4,6 +4,36 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
+## 6.7 A proper Mac app
+Building
+OPE is already native, signed and notarized, but it lacks Mac manners. It
+updates itself and says when a new version is ready, has a File menu with Open
+Project and Open Recent, opens a folder dropped on its Dock icon or chosen with
+Open With in Finder, has Settings on ⌘, and a View menu with full screen, text
+size and the side panel, follows the Mac into dark mode, stays in the Dock when
+its window closes, has a Help menu, and opens more than one project at once.
+
+1 none
+1a Updates: Sparkle inside the app, a signed feed on the GitHub releases, and Check for Updates in the OPE menu.
+2 none
+2a A File menu: Open Project on ⌘O, Open Recent, and Close Window.
+3 none
+3a A folder dropped on the Dock icon, or opened with OPE from Finder, opens as a project.
+4 none
+4a Settings on ⌘, and a View menu: Enter Full Screen, bigger and smaller text, show and hide the side panel.
+5 none
+5a Dark mode that follows the Mac.
+6 none
+6a Closing the window keeps OPE in the Dock, and clicking the Dock icon brings it back.
+7 none
+7a A Help menu that opens the README and the course, with the Mac's menu search.
+8 none
+8a More than one project at once: ⌘N for a new window, and the Mac's own tabs.
+9 none
+9a ⌘1 to ⌘9 jump between projects the way Claude Code jumps between chats, in the order of the project list, and Ctrl 1 to 9 on Windows.
+10 Update the OPE on your Mac from the new version, and say if anything feels off.
+10a Release it as 1.6: notarized dmg, the feed updated, and an update proved from 1.5 to 1.6 on this Mac.
+
 ## 6.4 The gaps the other courses teach
 Done
 Seventeen milestones added to the course, from reading CS50, The Odin Project,
