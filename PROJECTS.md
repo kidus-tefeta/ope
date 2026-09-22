@@ -5,7 +5,7 @@ OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
 ## 6.8 The road map, in OPE itself
-Building
+Done
 A map icon in OPE. Click it, pick a project from the list already there, and
 it draws as the same live pan and zoom map already built for BookHere and
 KTeC: curved glowing lines, bright per phase colors, zoom out for the names,
@@ -25,8 +25,8 @@ show a status the files do not support.
 3a Draw it from data OPE already computes: each major number a phase, each minor a part, colored, status straight from Planning, Building, Done.
 4 none
 4a Click a phase to zoom into its parts, click a part to read its summary and tasks.
-5 Open your own OPE folder's map and say if anything reads wrong.
-5a Nothing yet.
+5 Open your own map when you get a chance and say if anything reads wrong.
+5a Built OPE.app for real (scripts/build.sh) and proved it in the actual app, not a browser: killed a stale OPE process left running from last night that was silently serving yesterday's build, launched the fresh one, clicked the map icon, opened BookHere's own real map. 1.0's 8 parts, their real names, and their real Done/Building/Planning status all matched PROJECTS.md exactly; opening 1.15 showed its real task list, word for word.
 
 ## 6.7 A proper Mac app
 Done
