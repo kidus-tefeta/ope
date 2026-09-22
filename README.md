@@ -94,6 +94,12 @@ written as `1.2: what it does`, so a version appears in OPE on its own, includin
 one another chat started while you were looking somewhere else. Nothing is kept by
 hand and nothing goes stale.
 
+**The map** draws the same numbers as a live, pan and zoom road map instead of a
+list: each project a phase, each version a part under it, colored, glowing, its
+status straight from `Planning`, `Building`, `Done`. Click a phase to zoom into its
+parts, click a part to read what it does and its task list. Nothing new to keep up:
+it is `PROJECTS.md` and the git history, drawn.
+
 ## The system, as files
 
 ![After Add OPE to this project: AGENTS.md, CLAUDE.md and the ope-system folder](docs/system.png)
