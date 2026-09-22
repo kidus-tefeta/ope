@@ -64,10 +64,14 @@
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-label', 'Terminal');
     el.innerHTML =
+      /* the same top row as the rest of OPE: the window's buttons left clear,
+         the mark and the folder in the middle, the way out on the right */
       '<header class="termtop">' +
-        '<span class="termwhere" id="termWhere">Terminal</span>' +
-        '<span class="termhint">Escape to leave. The shell keeps running.</span>' +
-        '<button class="termx" id="termX" type="button" title="Close (Escape)" aria-label="Close the terminal">×</button>' +
+        '<span class="termside"></span>' +
+        '<span class="termmid"><span class="brand"><img src="img/mark.png" alt="">OPE</span>' +
+          '<span class="termwhere" id="termWhere">Terminal</span></span>' +
+        '<span class="termside right"><span class="termhint">Escape to leave. The shell keeps running.</span>' +
+          '<button class="termx" id="termX" type="button" title="Close (Escape)" aria-label="Close the terminal">×</button></span>' +
       '</header>' +
       '<div class="termsay hidden" id="termSay"></div>' +
       '<div class="termbody" id="termBody"></div>';

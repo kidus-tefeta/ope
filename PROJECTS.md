@@ -5,7 +5,7 @@ OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
 ## 6.7 A proper Mac app
-Building
+Done
 OPE is already native, signed and notarized, but it lacks Mac manners. It
 updates itself and says when a new version is ready, has a File menu with Open
 Project and Open Recent, opens a folder dropped on its Dock icon or chosen with
