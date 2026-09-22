@@ -4,6 +4,30 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
+## 6.8 The road map, in OPE itself
+Building
+A map icon in OPE. Click it, pick a project from the list already there, and
+it draws as the same live pan and zoom map already built for BookHere and
+KTeC: curved glowing lines, bright per phase colors, zoom out for the names,
+zoom in for what a piece does.
+
+No new AI call is needed to run it. OPE already reads every project's
+PROJECTS.md and its git tags to build the flat Projects list, the same
+numbers, names, summaries, tasks and Planning/Building/Done status. The map
+just draws that already-real data as a map instead of a list, so it can never
+show a status the files do not support.
+
+1 none
+1a A map icon in the rail, and a map panel filling the same space code, welcome and blank already share.
+2 none
+2a The map engine itself: pan, zoom, curved glowing lines, phase colors, sized to fit inside OPE's own panel.
+3 none
+3a Draw it from data OPE already computes: each major number a phase, each minor a part, colored, status straight from Planning, Building, Done.
+4 none
+4a Click a phase to zoom into its parts, click a part to read its summary and tasks.
+5 Open your own OPE folder's map and say if anything reads wrong.
+5a Nothing yet.
+
 ## 6.7 A proper Mac app
 Done
 OPE is already native, signed and notarized, but it lacks Mac manners. It

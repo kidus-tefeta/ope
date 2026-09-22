@@ -73,6 +73,7 @@
     if(which !== 'learn' && window.OPELearn) OPELearn.hide();
     $('code').classList.toggle('hidden', which !== 'code');
     $('blank').classList.toggle('hidden', which !== 'blank');
+    $('mapView').classList.toggle('hidden', which !== 'map');
     var code = which === 'code';
     $('saveBtn').classList.toggle('hidden', !code);
     $('checkBtn').classList.toggle('hidden', !code || !S.repo);
@@ -144,6 +145,14 @@
   }
 
   function blank(msg){ $('blank').innerHTML = '<div>'+msg+'</div>'; show('blank'); }
+
+  /* draws the map only while it is the visible view; the data behind it
+     ($.numbers) is already kept fresh for the flat Projects list either way */
+  function refreshMap(){
+    if($('mapView').classList.contains('hidden')) return;
+    if(!window.OPEMap) return;
+    OPEMap.render(S.numbers || [], S.root ? base(S.root) : '');
+  }
 
   /* ------------------------------------------------------------ opening */
   function pickProject(){
@@ -229,7 +238,7 @@
           S.version = S.project.versions.filter(function(v){ return v.name === name; })[0] || S.version;
         }
       }
-      renderProjects(); renderVersions();
+      renderProjects(); renderVersions(); refreshMap();
       return S.version ? markVersion(S.version) : renderTree();
     }).then(function(){
       status(S.libSel ? 'Project ' + S.libSel + ', from your numbered projects' : S.repo ? (S.numbered ? 'Tracking versions with git' : 'Git history, no numbered versions yet') : 'Not tracked by git yet',
@@ -966,6 +975,7 @@
       if(v === 'prompt') welcome();
       if(v === 'learn'){ S.path = ''; setDirty(false); $('tabName').textContent = 'Learn'; show('learn'); OPELearn.show(); }
       if(v === 'projects'){ if(S.path) show('code'); else if(S.root) blank('Pick a project on the left, then a version.<br>Folders it touched get a green box.'); else welcome(); }
+      if(v === 'map'){ S.path = ''; setDirty(false); $('tabName').textContent = 'Map'; show('map'); refreshMap(); }
     };
   });
   window.addEventListener('beforeunload', function(e){ if(S.dirty){ e.preventDefault(); e.returnValue = ''; } });

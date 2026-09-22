@@ -331,3 +331,50 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
 #projectList.keys .libname{position:relative}
 #projectList.keys .libname[data-key]::after{content:attr(data-key);position:absolute;right:8px;top:50%;transform:translateY(-50%);
   font-size:11px;color:var(--sub);border:1px solid var(--edge-dim);border-radius:4px;padding:0 5px;line-height:16px;background:var(--bg)}
+
+/* THE MAP. Same idea as the road maps for BookHere and KTeC: curved glowing
+   lines in each phase's own bright color, pan and zoom, zoom out for the
+   names, zoom in for what a piece does. Drawn from data OPE already has. */
+.mapview{flex:1;position:relative;min-height:0;overflow:hidden}
+.mapvp{position:absolute;inset:0;overflow:hidden;cursor:grab}
+.mapvp:active{cursor:grabbing}
+.mapworld{position:absolute;left:0;top:0;transform-origin:0 0}
+.maplinks{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.maplink{fill:none;stroke-width:2.2;opacity:.9}
+
+.mnode{position:absolute;border:1.5px solid var(--edge-dim);border-radius:10px;background:#05070a;
+  display:flex;flex-direction:column;justify-content:center;padding:6px 12px;overflow:hidden;user-select:none}
+.mnode b{font-size:12px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mnode span{font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.mnode.trunk{align-items:center;text-align:center;border-color:var(--edge);background:#000}
+.mnode.trunk span{color:var(--faint)}
+.mnode.phase{cursor:pointer}
+.mnode.phase:hover{background:#0c1116}
+.mnode.part{cursor:pointer;border-radius:8px}
+.mnode.part:hover{background:#0c1116}
+.mnode .mtag{margin-top:4px;font-style:normal;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.mnode.s-plan{opacity:.55}
+.mnode.s-build{box-shadow:0 0 0 1px currentColor}
+.mnode.s-build .mtag,.mnode.part.s-build{animation:mapPulse 1.8s ease-in-out infinite}
+.mnode.s-done{opacity:1}
+@keyframes mapPulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+.mapempty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--sub);padding:20px}
+.mapempty h3{margin:0 0 8px;color:var(--ink);font-size:14px;font-weight:600}
+.mapempty p{margin:0;max-width:320px;line-height:1.6}
+
+.mapdetail{position:absolute;right:16px;top:16px;bottom:16px;width:260px;pointer-events:none}
+.mdcard{pointer-events:auto;background:#05070a;border:1.5px solid var(--edge-dim);border-radius:10px;
+  padding:16px;max-height:100%;overflow:auto;position:relative}
+.mdx{position:absolute;right:8px;top:6px;background:none;border:0;color:var(--sub);font-size:18px;cursor:pointer;line-height:1}
+.mdx:hover{color:var(--ink)}
+.mdcard>b{display:block;font-size:12px;letter-spacing:.04em}
+.mdcard h3{margin:6px 0 4px;font-size:14px;font-weight:600;color:var(--ink)}
+.mdst{margin:0 0 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--sub)}
+.mdtasks{margin:0;padding:0 0 0 16px;font-size:12px;line-height:1.6;color:var(--sub)}
+.mdtasks b{color:var(--ink);margin-right:4px}
+.mdparts{display:flex;flex-wrap:wrap;gap:6px}
+.mdparts span{font-size:11px;border:1px solid var(--edge-dim);border-radius:5px;padding:2px 7px;color:var(--sub)}
+.mdparts span.s-done{color:var(--ink);border-color:var(--edge-dim)}
+.mdparts span.s-build{color:var(--green);border-color:var(--green)}
+.mdparts span.s-plan{opacity:.6}

@@ -20,6 +20,9 @@
     <button class="ico on" data-view="projects" title="Projects" aria-label="Projects">
       <svg viewBox="0 0 24 24"><path d="M4 5h6l2 2h8v12H4z"/><path d="M8 12h8M8 15h5"/></svg>
     </button>
+    <button class="ico" data-view="map" title="Map" aria-label="Map">
+      <svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>
+    </button>
     <button class="ico mark" data-view="prompt" title="OPE, and the prompt" aria-label="OPE, and the prompt">
       <img src="img/mark.png" alt="">
     </button>
@@ -64,6 +67,11 @@
     <div class="welcome hidden" id="learn"></div>
     <div class="code hidden" id="code"></div>
     <div class="blank hidden" id="blank"></div>
+    <div class="mapview hidden" id="mapView">
+      <div class="mapvp" id="mapVp"><div class="mapworld" id="mapWorld"></div></div>
+      <div class="mapempty hidden" id="mapEmpty"></div>
+      <div class="mapdetail hidden" id="mapDetail"></div>
+    </div>
   </section>
 
   <aside class="panel chat" id="chat" aria-label="OPE Chat">
@@ -117,5 +125,6 @@
 <script src="learn/steps-solo.js"></script>
 <script src="learn.js"></script>
 <script src="terminal.js"></script>
+<script src="map.js"></script>
 </body>
 </html>
