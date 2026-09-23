@@ -343,6 +343,10 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
    connecting lines, pan and zoom. A fixed, legible start scale, not a
    shrink-to-fit: a wide project pans, it does not get small enough to blur. */
 .mapview{flex:1;position:relative;min-height:0;overflow:hidden}
+/* a project that already has its own road map page runs that page itself in
+   here, not a lookalike drawn from its files: same html, same css, same
+   fonts, same milestone rail, same everything, because it IS the page */
+.mapframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
 .mapvp{position:absolute;inset:0;overflow:hidden;cursor:grab}
 .mapvp:active{cursor:grabbing}
 .mapworld{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
@@ -382,9 +386,6 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
 .s-plan{background:rgba(169,182,176,.16);color:#BFCCC6}
 .s-build{background:rgba(251,191,36,.2);color:var(--gold)}
 .s-done{background:rgba(74,222,128,.2);color:var(--green2)}
-.s-live{background:rgba(74,222,128,.2);color:var(--green2)}
-.s-later{background:rgba(148,163,184,.16);color:#94A3B8}
-.s-built{background:rgba(127,224,166,.16);color:#7FE0A6;box-shadow:inset 0 0 0 1px rgba(127,224,166,.35)}
 .mphase.s-build,.mpkg.s-build{box-shadow:0 0 0 1px rgba(251,191,36,.3)}
 .mpkg.s-plan{opacity:.6}
 
@@ -420,17 +421,3 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
 .mdrow b{color:var(--ink);margin-right:6px;font-weight:700}
 .mdrow .stag{top:50%;transform:translateY(-50%);right:0}
 
-/* BookHere's own tags, on its own subs: m-build, later, risk, todo, locked */
-.mdtags{margin:10px 0 0;display:flex;gap:6px;flex-wrap:wrap}
-.tg{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase}
-.t-m{background:rgba(251,191,36,.18);color:var(--gold)}
-.t-risk{background:rgba(251,113,133,.18);color:#FB9AA8}
-.t-todo{background:rgba(251,146,60,.18);color:#FDBA74}
-.t-locked{background:rgba(74,222,128,.18);color:var(--green2)}
-.t-plan{background:rgba(169,182,176,.16);color:#BFCCC6}
-.t-later{background:rgba(148,163,184,.16);color:#94A3B8}
-.mdsteps{margin:0;padding:12px 0 0;border-top:1px solid var(--edge-dim);counter-reset:s;list-style:none;display:flex;flex-direction:column;gap:10px}
-.mdsteps li{position:relative;padding:1px 0 1px 30px;counter-increment:s;font-size:12px;line-height:1.5;color:var(--sub)}
-.mdsteps li:before{content:counter(s);position:absolute;left:0;top:0;width:20px;height:20px;border-radius:6px;background:#0d1512;
-  border:1px solid var(--edge-dim);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10.5px;color:var(--green2)}
-.mdcard code{font-family:var(--mono);font-size:11px;background:#0d1512;padding:1px 5px;border-radius:5px;color:#8AF0B4;word-break:break-word}

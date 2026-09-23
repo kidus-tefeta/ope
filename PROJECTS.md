@@ -4,32 +4,35 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
-## 6.9 The map, in BookHere's own real style
+## 6.9 The map is the real page, not a lookalike
 Done
-The generic map now looks like the real BookHere and KTeC road maps: an icon
-per card, a status pill, a title, a kicker line, a footer count, and a click
-that opens a bulleted "in plain words" sheet. Every project gets this by
-default, simple, no setup.
+A drawn copy was never going to be identical to BookHere's own road map, and
+he asked for identical at all cost. So OPE stopped copying it: when a project
+already has its own road map page, OPE runs THAT file, in the map view, as
+itself. Same html, same css, same fonts, same milestone rail, same phase bar,
+same HUD, same third tier drawn on the canvas, because it is the page.
 
-BookHere itself is a special case, on purpose: when the opened folder has its
-own `public/bookhere-data.js`, the map draws that file directly, not a redraw
-of PROJECTS.md. Real phases, real systems, real tags, real "how it works"
-steps, the numbers never had to line up with 1.1 or 1.2. Any other project
-without a file like that gets the same card style drawn from its own
-PROJECTS.md, same as 6.8 already did.
+Two things are undone on the way in, both of them only about the web: the
+door, which asks for the code and fetches its data from a Worker that is not
+in here, and the data file it would have fetched, which is read off the disk
+and put inline instead. Nothing else is touched.
 
-Map view also now hides the Explorer and the versions column: just the
-Projects list to pick from, and the map itself, nothing else competing for
-the screen.
+A project with no map page of its own still gets one, drawn from its own
+PROJECTS.md in the card style of those maps: icon, status pill, title, kicker
+line, footer count, a bulleted "in plain words" sheet on a click. Simple, no
+setup, same as 6.8 promised.
+
+Map view also hides the Explorer and the versions column now, and the Mac View
+menu grew "The Map" on shift-command-M.
 
 1 none
-1a The card style ported from bookhere-map.html: icon, status pill, kicker, footer, into a reusable engine.
+1a Run a project's own map page in the map view, its door and its server undone, every script it names read off disk and put inline.
 2 none
-2a BookHere's own file read and drawn directly when present, full three levels: phase, system, sub, with real tags and steps.
+2a Fall back to the PROJECTS.md map, in the same card style, for a project with no page of its own.
 3 none
-3a Map view hides Explorer and the versions column, mapmode class on the whole window.
+3a Map view hides Explorer and the versions column; View menu gets The Map.
 4 Open it on BookHere and say if anything reads wrong.
-4a Proved through the dev server against the real bookhere-data.js: 8 real phases, 19 real systems, real icons, real tags, real "how it works" steps, word for word. The generic fallback proved too, against OPE's own folder. Not yet re-clicked inside the compiled app itself: it kept landing on a different monitor each attempt, one of them showing something private, so I stopped rather than keep hunting across your screens.
+4a Proved through the dev server on the real files: the real page runs, 19 systems, 134 parts on the canvas, 9 milestones in the rail, 8 phases in the bar, its own fonts, its own HUD, and its own headline, "16 of 19 systems live · 1.5 sessions left to first money". The plain fallback proved too, on OPE's own folder. The compiled app was rebuilt and its new View menu item fired, but the window sat on another Space behind a full screen app, so the last look at it inside the app itself is yours.
 
 ## 6.8 The road map, in OPE itself
 Done

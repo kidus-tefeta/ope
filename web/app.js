@@ -152,7 +152,7 @@
   function refreshMap(){
     if($('mapView').classList.contains('hidden')) return;
     if(!window.OPEMap) return;
-    OPEMap.render(S.numbers || [], S.root ? base(S.root) : '');
+    OPEMap.render(S.numbers || [], S.root ? base(S.root) : '', S.files || []);
   }
 
   /* ------------------------------------------------------------ opening */
@@ -1063,8 +1063,9 @@
   dragSoon();
 
   function learnView(){ var b = document.querySelector('.rail .ico[data-view="learn"]'); if(b) b.click(); }
+  function mapView(){ var b = document.querySelector('.rail .ico[data-view="map"]'); if(b) b.click(); }
 
   window.OPE = {state: S, openRoot: openRoot, openFile: openAt, showLearn: showLearn,
                 /* what the Mac menus reach for */
-                fold: fold, pick: pickProject, learn: learnView};
+                fold: fold, pick: pickProject, learn: learnView, map: mapView};
 })();

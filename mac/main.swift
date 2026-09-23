@@ -1216,6 +1216,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     windows.forEach { $0.web.pageZoom = App.zoom }
   }
 
+  @objc func showMap(_ s: Any?) { current.page("OPE.map()") }
   @objc func toggleProjects(_ s: Any?) { current.page("OPE.fold('projects')") }
   @objc func toggleChat(_ s: Any?) { current.page("OPE.fold('chat')") }
 
@@ -1278,6 +1279,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     let viewItem = NSMenuItem(); main.addItem(viewItem)
     let view = NSMenu(title: "View")
+    _ = add(view, "The Map", #selector(showMap(_:)), "m", [.command, .shift], target: self)
+    view.addItem(.separator())
     _ = add(view, "Show or Hide Projects", #selector(toggleProjects(_:)), "s", [.command, .control], target: self)
     _ = add(view, "Show or Hide OPE Chat", #selector(toggleChat(_:)), "i", [.command, .option], target: self)
     view.addItem(.separator())

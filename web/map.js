@@ -1,18 +1,22 @@
-/* THE MAP. Every numbered project, drawn instead of listed, in the same card
-   style as the BookHere and KTeC road maps: an icon, a status pill, a title,
-   a kicker line, a footer count. Click a card and its own tasks read as a
-   plain bulleted list, the same shape as those maps' "in plain words".
+/* THE MAP. Two ways, in this order.
 
-   No new data. app.js already reads PROJECTS.md and the git tags for the
-   flat Projects list (OPEGit.projectsFile + OPEGit.numbersFromLog, merged
-   into S.numbers: name, major, minor, named, building, planning, blurb,
-   tasks). This just draws that same list as a live, pan and zoom map.
+   1. THE PROJECT'S OWN PAGE. If the project already has a road map page of
+      its own (BookHere does: a hand built one with a milestone rail, a phase
+      bar, its own fonts, its own third tier drawn on the canvas) OPE runs
+      THAT file, here, as itself. Not a lookalike: the same html, the same
+      css, the same everything, because it is the page. Its door and its
+      server are undone on the way in, since neither exists in here.
 
-   Two tiers deep, not BookHere's four: a major number is a phase, a minor
-   number is a card. PROJECTS.md has no third tier of its own, so a card's
-   tasks show as the bulleted detail directly, not another row of cards.
+   2. DRAWN FROM PROJECTS.md. Every other project gets a map anyway, in the
+      same card style as those maps: an icon, a status pill, a title, a
+      kicker line, a footer count, and a bulleted "in plain words" sheet on
+      a click. No new data: app.js already reads PROJECTS.md and the git tags
+      for the flat Projects list (OPEGit.projectsFile + numbersFromLog into
+      S.numbers: name, major, minor, named, building, planning, blurb,
+      tasks). Two tiers, a major is a phase and a minor is a card, because
+      PROJECTS.md has no third tier of its own.
 
-   window.OPEMap.render(numbers, rootName) is the only thing app.js calls. */
+   window.OPEMap.render(numbers, rootName, files) is all app.js calls. */
 (function(){
   'use strict';
   var NS = 'http://www.w3.org/2000/svg';
@@ -99,30 +103,101 @@
     return '<span class="stag ' + v[0] + '"><i></i>' + v[1] + '</span>';
   }
 
-  /* BOOKHERE'S OWN MAP, whatever is really in it. Its numbers never lined up
-     with PROJECTS.md's, and Kidus said not to bother making them: when this
-     project has its own public/bookhere-data.js, that real file is the map,
-     not a redraw of PROJECTS.md. Same card engine, real content. */
-  var richCache = {};
-  function loadRich(){
+  /* A PROJECT'S OWN ROAD MAP PAGE, RUN AS ITSELF.
+     BookHere already has a real one, hand built, with a milestone rail, a
+     phase bar, its own fonts and its own third tier drawn on the canvas.
+     Nothing redrawn from PROJECTS.md was ever going to be that page, so
+     when a project has one, OPE runs that file instead of drawing its own:
+     same html, same css, same everything, because it IS the page.
+
+     Two things are undone on the way in, both only about the web:
+     the door, which asks for a code and fetches its data from a Worker that
+     is not here, and the data file it would have fetched, which is read off
+     the disk and put inline instead. */
+  function findOwnMap(files){
+    var html = null;
+    (files || []).forEach(function(f){
+      if(html) return;
+      if(/node_modules|\/vendor\//.test(f)) return;
+      if(/(^|\/)[^\/]*map[^\/]*\.html$/i.test(f)) html = f;
+    });
+    return html;
+  }
+
+  function dirOf(path){ var i = path.lastIndexOf('/'); return i < 0 ? '' : path.slice(0, i + 1); }
+
+  /* every .js the page names, read off disk by its own name, wherever it
+     actually sits, so the page runs with no server under it */
+  function inlineScripts(src, htmlPath, files){
+    var want = {}, m, re = /['"\/]([\w.-]+\.js)(\?[^'"]*)?['"]/g;
+    while((m = re.exec(src))) want[m[1]] = true;
+    var names = Object.keys(want);
+    if(!names.length) return Promise.resolve(src);
+    var here = dirOf(htmlPath);
+    return Promise.all(names.map(function(name){
+      var path = (files || []).filter(function(f){ return f === here + name || f.slice(-(name.length + 1)) === '/' + name; })[0];
+      if(!path) return Promise.resolve(null);
+      return OPEBridge.call('read', {path: path}).then(function(r){
+        return r && r.text ? {name: name, text: r.text} : null;
+      }).catch(function(){ return null; });
+    })).then(function(got){
+      var add = '';
+      got.filter(Boolean).forEach(function(g){
+        /* a tag that would have fetched it is dropped, it is inline now */
+        src = src.replace(new RegExp('<script[^>]*src=["\'][^"\']*' + g.name.replace(/\./g, '\\.') + '[^"\']*["\'][^>]*>\\s*<\\/script>', 'gi'), '');
+        add += '<script>\n' + g.text + '\n</script>\n';
+      });
+      return add ? src.replace(/<body([^>]*)>/i, '<body$1>\n' + add) : src;
+    });
+  }
+
+  function unlock(src){
+    /* the door: a locked body, a panel over everything, and the block that
+       asks a Worker for a pass. None of it can be answered from in here. */
+    src = src.replace(/<body([^>]*)class=["']([^"']*)locked([^"']*)["']([^>]*)>/i, '<body$1class="$2$3"$4>');
+    src = src.replace(/<div id=["']door["'][\s\S]*?\n<\/div>\n/i, '');
+    src = src.replace(/\(function\(\)\s*\{[\s\S]*?tryStored\(\);\s*\}\)\(\);/, '');
+    /* boot() was only ever called by the door opening */
+    if(/function\s+boot\s*\(/.test(src)) src += '\n<script>if(typeof boot==="function")boot();</script>\n';
+    return src;
+  }
+
+  var ownCache = {};
+  function loadOwnMap(files){
     if(!window.OPEBridge) return Promise.resolve(null);
-    return OPEBridge.call('read', {path: 'public/bookhere-data.js'}).then(function(r){
+    var path = findOwnMap(files);
+    if(!path) return Promise.resolve(null);
+    return OPEBridge.call('read', {path: path}).then(function(r){
       var src = r && r.text;
-      if(!src) return null;
-      if(richCache.src === src) return richCache.data;
-      var sandbox = {};
-      try {
-        (new Function('window', src))(sandbox);
-        if(!sandbox.BH_PHASES || !sandbox.BH_SYS || !sandbox.BH_META) return null;
-        richCache = {src: src, data: sandbox};
-        return sandbox;
-      } catch(e){ return null; }
+      if(!src || !/<html|<body/i.test(src)) return null;
+      if(ownCache.src === src) return ownCache.out;
+      return inlineScripts(src, path, files).then(function(full){
+        var out = unlock(full);
+        ownCache = {src: src, out: out};
+        return out;
+      });
     }).catch(function(){ return null; });
   }
 
-  function render(numbers, rootName){
-    loadRich().then(function(bh){
-      if(bh) renderRich(bh, rootName); else renderGeneric(numbers, rootName);
+  function render(numbers, rootName, files){
+    var frame = $('mapFrame');
+    loadOwnMap(files).then(function(page){
+      if(page){
+        $('mapVp').classList.add('hidden');
+        $('mapEmpty').classList.add('hidden');
+        $('mapDetail').classList.add('hidden');
+        frame.classList.remove('hidden');
+        if(frame.getAttribute('data-src') !== ownCache.src){
+          frame.setAttribute('data-src', ownCache.src);
+          frame.srcdoc = page;
+        }
+        return;
+      }
+      frame.classList.add('hidden');
+      frame.removeAttribute('data-src');
+      frame.srcdoc = '';
+      $('mapVp').classList.remove('hidden');
+      renderGeneric(numbers, rootName);
     });
   }
 
@@ -244,158 +319,6 @@
         (part.blurb ? blurbHtml(part.blurb) : '')+
         (tasks.length ? '<div class="mdsec">in plain words</div><ul class="mdatoms">' +
           tasks.map(function(t){ return '<li><b>' + esc(t.id) + '</b> ' + esc(t.text) + '</li>'; }).join('') + '</ul>' : '')+
-      '</div>';
-    detail.classList.remove('hidden');
-    $('mapDetailX').onclick = function(){ detail.classList.add('hidden'); };
-  }
-
-  var RICH_STATUS = {plan: ['s-plan','planned'], build: ['s-build','building'], live: ['s-live','live'],
-    done: ['s-done','decided'], later: ['s-later','parked'], built: ['s-built','built · not run']};
-  function richPill(st){
-    var v = RICH_STATUS[st] || RICH_STATUS.plan;
-    return '<span class="stag ' + v[0] + '"><i></i>' + v[1] + '</span>';
-  }
-  var TAG_CLASS = {later: 't-later', risk: 't-risk', todo: 't-todo', locked: 't-locked'};
-  function tagsHtml(tags){
-    if(!tags || !tags.length) return '';
-    return '<div class="mdtags">' + tags.map(function(t){
-      var cls = /^m\d$/i.test(t) ? 't-m' : (TAG_CLASS[t] || 't-plan');
-      var text = /^m\d$/i.test(t) ? t.toUpperCase() + ' build' : (t === 'later' ? 'parked' : t);
-      return '<span class="tg ' + cls + '">' + esc(text) + '</span>';
-    }).join('') + '</div>';
-  }
-  /* a <code> in the real text, kept as code, everything else escaped */
-  function rich(s){
-    return esc(s).replace(/&lt;code&gt;/g, '<code>').replace(/&lt;\/code&gt;/g, '</code>')
-      .replace(/&lt;b&gt;/g, '<b>').replace(/&lt;\/b&gt;/g, '</b>');
-  }
-
-  function renderRich(bh, rootName){
-    vp = $('mapVp'); world = $('mapWorld');
-    var empty = $('mapEmpty'), detail = $('mapDetail');
-    detail.classList.add('hidden'); detail.innerHTML = '';
-    world.innerHTML = '';
-    empty.classList.add('hidden');
-
-    var phases = bh.BH_PHASES.map(function(ph, i){ return {name: ph.name, color: ph.color, blurb: ph.blurb, major: i + 1, sys: []}; });
-    var byName = {}; phases.forEach(function(p){ byName[p.name] = p; });
-    bh.BH_SYS.forEach(function(s){
-      var m = bh.BH_META[s.title];
-      if(!m || !byName[m.phase]) return;
-      byName[m.phase].sys.push({sys: s, meta: m});
-    });
-    phases = phases.filter(function(p){ return p.sys.length; });
-    if(!phases.length){ renderGeneric([], rootName); return; }
-
-    svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'maplinks'); world.appendChild(svg);
-
-    var totalW = Math.max(phases.length * (PHASE_W + CARD_GAP) - CARD_GAP, TRUNK_W);
-    var startX = (totalW - (phases.length * (PHASE_W + CARD_GAP) - CARD_GAP)) / 2;
-    var trunkCx = totalW / 2;
-
-    var trunk = el('mproj');
-    trunk.style.cssText = 'left:' + (trunkCx - TRUNK_W / 2) + 'px;top:' + TRUNK_Y + 'px;width:' + TRUNK_W + 'px;height:' + TRUNK_H + 'px';
-    trunk.innerHTML = '<h1>' + esc(rootName || 'bookhere') + '</h1><div class="num"><span>' + bh.BH_SYS.length + ' systems</span></div>';
-    world.appendChild(trunk);
-
-    var maxBottom = CARD_Y;
-    phases.forEach(function(p, i){
-      var cx = startX + i * (PHASE_W + CARD_GAP) + PHASE_W / 2;
-      p.cx = cx;
-      link(trunkCx, TRUNK_Y + TRUNK_H, cx, PHASE_Y, p.color);
-
-      var statuses = p.sys.map(function(x){ return x.meta.status; });
-      var st = statuses.every(function(s){ return s === 'live' || s === 'done'; }) ? 'done' :
-        (statuses.some(function(s){ return s === 'build'; }) ? 'build' : 'plan');
-      var node = el('mphase s-' + st);
-      node.style.cssText = 'left:' + (cx - PHASE_W / 2) + 'px;top:' + PHASE_Y + 'px;width:' + PHASE_W + 'px;height:' + PHASE_H + 'px;border-color:' + p.color;
-      node.innerHTML = '<h2 style="color:' + p.color + '">' + esc(p.name) + '</h2><p>' + esc(p.blurb || '') + '</p>';
-      node.onclick = function(e){ e.stopPropagation(); openRichPhase(p); };
-      world.appendChild(node);
-
-      var y = CARD_Y;
-      p.sys.forEach(function(row){
-        var s = row.sys, m = row.meta;
-        var h = FRAME_H + 54 + (s.kick ? 34 : 0);
-        link(cx, PHASE_Y + PHASE_H, cx, y + FRAME_H / 2, p.color);
-        var card = el('mpkg s-' + (m.status === 'live' ? 'done' : m.status));
-        card.style.cssText = 'left:' + (cx - CARD_W / 2) + 'px;top:' + y + 'px;width:' + CARD_W + 'px;height:' + h + 'px';
-        card.innerHTML =
-          '<div class="mtag">' + esc(m.m) + '</div>'+
-          richPill(m.status)+
-          '<div class="frame" style="color:' + p.color + '"><svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">'+
-            (ILLUS[m.illus] || ILLUS.graph)+
-          '</svg></div>'+
-          '<div class="body"><h3>' + esc(s.title) + '</h3>'+
-          (s.kick ? '<p class="kick">' + esc(s.kick) + '</p>' : '')+
-          '<div class="cnt">' + s.subs.length + ' part' + (s.subs.length === 1 ? '' : 's') + '</div></div>';
-        card.onclick = function(e){ e.stopPropagation(); openRichSys(p, row); };
-        world.appendChild(card);
-        y += h + CARD_VGAP;
-      });
-      if(y > maxBottom) maxBottom = y;
-    });
-
-    worldW = totalW; worldH = maxBottom + 60;
-    world.style.width = worldW + 'px'; world.style.height = worldH + 'px';
-    svg.setAttribute('width', worldW); svg.setAttribute('height', worldH);
-    home();
-  }
-
-  function openRichPhase(p){
-    var detail = $('mapDetail');
-    detail.innerHTML =
-      '<div class="mdcard" style="border-color:' + p.color + '">'+
-        '<button class="mdx" id="mapDetailX" type="button" aria-label="Close">&times;</button>'+
-        '<div class="mdpath">' + esc(p.name) + '</div>'+
-        '<h3>' + esc(p.name) + '</h3>'+
-        (p.blurb ? '<p class="mdblurb">' + esc(p.blurb) + '</p>' : '')+
-        '<div class="mdsec">' + p.sys.length + ' system' + (p.sys.length === 1 ? '' : 's') + '</div>'+
-        '<div class="mdrows">' + p.sys.map(function(row){
-          return '<div class="mdrow"><b>' + esc(row.meta.m) + '</b> ' + esc(row.sys.title) + richPill(row.meta.status) + '</div>';
-        }).join('') + '</div>'+
-      '</div>';
-    detail.classList.remove('hidden');
-    $('mapDetailX').onclick = function(){ detail.classList.add('hidden'); };
-    Array.prototype.forEach.call(detail.querySelectorAll('.mdrow'), function(row, i){
-      row.onclick = function(){ openRichSys(p, p.sys[i]); };
-    });
-  }
-
-  function openRichSys(p, row){
-    var detail = $('mapDetail');
-    var s = row.sys, m = row.meta;
-    detail.innerHTML =
-      '<div class="mdcard" style="border-color:' + p.color + '">'+
-        '<button class="mdx" id="mapDetailX" type="button" aria-label="Close">&times;</button>'+
-        '<div class="mdpath">' + esc(p.name + ' · ' + m.m) + '</div>'+
-        '<h3>' + esc(s.title) + '</h3>'+
-        richPill(m.status)+
-        (s.kick ? '<p class="mdblurb">' + esc(s.kick) + '</p>' : '')+
-        '<div class="mdsec">' + s.subs.length + ' part' + (s.subs.length === 1 ? '' : 's') + '</div>'+
-        '<div class="mdrows">' + s.subs.map(function(sub, i){
-          return '<div class="mdrow" data-i="' + i + '"><b>' + esc(sub.t) + '</b> ' + rich(sub.atoms[0] || '') + '</div>';
-        }).join('') + '</div>'+
-      '</div>';
-    detail.classList.remove('hidden');
-    $('mapDetailX').onclick = function(){ detail.classList.add('hidden'); };
-    Array.prototype.forEach.call(detail.querySelectorAll('.mdrow'), function(row2, i){
-      row2.onclick = function(){ openRichSub(p, row, s.subs[i]); };
-    });
-  }
-
-  function openRichSub(p, row, sub){
-    var detail = $('mapDetail');
-    detail.innerHTML =
-      '<div class="mdcard" style="border-color:' + p.color + '">'+
-        '<button class="mdx" id="mapDetailX" type="button" aria-label="Close">&times;</button>'+
-        '<div class="mdpath">' + esc(p.name + ' · ' + row.sys.title) + '</div>'+
-        '<h3>' + esc(sub.t) + '</h3>'+
-        tagsHtml(sub.tags)+
-        '<div class="mdsec">in plain words</div>'+
-        '<ul class="mdatoms">' + (sub.atoms || []).map(function(a){ return '<li>' + rich(a) + '</li>'; }).join('') + '</ul>'+
-        (sub.steps && sub.steps.length ? '<div class="mdsec">how it works</div><ol class="mdsteps">' +
-          sub.steps.map(function(st){ return '<li>' + rich(st) + '</li>'; }).join('') + '</ol>' : '')+
       '</div>';
     detail.classList.remove('hidden');
     $('mapDetailX').onclick = function(){ detail.classList.add('hidden'); };
