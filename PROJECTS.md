@@ -4,6 +4,31 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
+## 6.10 Every map is the same map
+Done
+BookHere's road map engine is now OPE's road map engine, for everybody. The
+whole page lives in `web/roadmap.html`: the project at the top, phases
+branching off it, a system card under each with its own icon and status, that
+card's parts drawn beneath it, the milestone rail, the phase bar, the HUD,
+drag to pan, zoom in for the detail. Same concept, same everything, on every
+project.
+
+Only the data differs. A project that keeps a road map page of its own runs
+that exact file instead, so BookHere stays itself to the pixel. Everything
+else gets the same page filled from what it already writes: a major number is
+a phase and a milestone, a minor number is a system card, its tasks are that
+card's parts, `Planning` / `Building` / `Done` is its status, and the
+paragraph under the status word is the line on the card.
+
+1 none
+1a BookHere's page generalised into `web/roadmap.html`: door gone, name, tagline, phases, systems and milestones read from data.
+2 none
+2a PROJECTS.md turned into that data: phases, milestones, system cards, parts, statuses, an icon picked from the words.
+3 none
+3a A project's own page still wins when it has one, and OPE's own shell is never mistaken for one.
+4 none
+4a Proved in the compiled app, not a browser: kd-tracker-app drew 12 systems, 65 parts, 2 milestones, real names and real statuses, with the rail, the bar and the HUD. OPE's own folder drew 9 systems and 68 parts. BookHere still runs its own file, 19 systems, 134 parts, 9 milestones, its own wordmark and tagline.
+
 ## 6.9 The map is the real page, not a lookalike
 Done
 A drawn copy was never going to be identical to BookHere's own road map, and
