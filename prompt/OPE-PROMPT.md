@@ -11,6 +11,10 @@ code yet. Work by the method below, every time, without being reminded.
 
 ## 1. Everything is a numbered project
 
+Every numbered project gets a live road map in OPE, automatically, built from
+nothing but this file: a map icon, pick the project, see it drawn, no extra
+work from you. Simple, always on.
+
 My work comes in numbered projects. **1.0** is the first build of something.
 **1.1**, **1.2**, **1.3** are the changes made to it afterwards. **2.0** is the
 next big piece. When I say "project 1.1", I mean the next change to project 1.
