@@ -93,7 +93,20 @@
         /* the tasks under it: "1 none", "1a what gets built", "2b what waits
            on the person", with or without bold or a list dash in front */
         var t = cur && /^[-*\s]*\**\s*(\d+[a-z]?)\**[.:)]?\s+(.+)$/i.exec(line.trim());
-        if(t && cur.status !== undefined){ cur.tasks.push({id: t[1].toLowerCase(), text: t[2].replace(/\*\*/g, '').trim()}); return; }
+        /* an indented line under a task is that task's own detail, and the
+           only place the deeper half of the map can come from: a dash is a
+           plain words bullet, a number is a step in how it works. Written in
+           PROJECTS.md and nowhere else, so it cannot drift from the file the
+           method already makes everybody keep. */
+        var deep = cur && cur.tasks.length && /^\s{2,}(?:[-*]|\d+[.)])\s+\S/.test(line);
+        if(deep){
+          var last = cur.tasks[cur.tasks.length - 1];
+          var d = /^\s+[-*]\s+(.+)$/.exec(line);
+          if(d) last.atoms.push(d[1].replace(/\*\*/g, '').trim());
+          else last.steps.push(/^\s+\d+[.)]\s+(.+)$/.exec(line)[1].replace(/\*\*/g, '').trim());
+          return;
+        }
+        if(t && cur.status !== undefined){ cur.tasks.push({id: t[1].toLowerCase(), text: t[2].replace(/\*\*/g, '').trim(), atoms: [], steps: []}); return; }
         if(cur && cur.status === undefined && line.trim()){
           var w = line.trim().toLowerCase();
           cur.status = /^building\b/.test(w) ? 'building' : /^planning\b/.test(w) ? 'planning' : /^done\b/.test(w) ? 'done' : '';

@@ -66,17 +66,20 @@
       if(!num) return;
       var kind = String(t.id).slice(num.length).toLowerCase() || 'n';
       if(!by[num]){ by[num] = {}; order.push(num); }
-      by[num][kind] = t.text;
+      by[num][kind] = t;
     });
     return order.map(function(num){
       var g = by[num];
-      var built = g.a || '';
-      var yours = g.n && !/^none\b/i.test(g.n.trim()) ? g.n : '';
-      var waits = g.b || '';
-      var atoms = [], tags = [];
-      if(yours){ atoms.push('Yours: ' + yours); tags.push('todo'); }
-      if(waits){ atoms.push('Waiting on you: ' + waits); tags.push('risk'); }
-      return {t: built || ('Task ' + num), tags: tags, atoms: atoms, steps: []};
+      var built = g.a || {};
+      var yours = g.n && g.n.text && !/^none\b/i.test(g.n.text.trim()) ? g.n : null;
+      var waits = g.b || null;
+      var atoms = [], steps = [], tags = [];
+      /* the indented detail written under the task, when there is any */
+      (built.atoms || []).forEach(function(a){ atoms.push(a); });
+      (built.steps || []).forEach(function(s){ steps.push(s); });
+      if(yours){ atoms.push('Yours: ' + yours.text); tags.push('todo'); (yours.atoms || []).forEach(function(a){ atoms.push(a); }); }
+      if(waits){ atoms.push('Waiting on you: ' + waits.text); tags.push('risk'); }
+      return {t: built.text || ('Task ' + num), tags: tags, atoms: atoms, steps: steps};
     });
   }
 
@@ -88,8 +91,13 @@
 
     majors.forEach(function(m, i){
       var parts = by[m].slice().sort(function(a, b){ return a.minor - b.minor; });
-      var head = parts[0];
-      var phase = 'Project ' + m;
+      /* a heading for the whole number, "## 6.0 The OPE app", names its own
+         phase and says what it is. Most projects never write one, so the
+         number itself is the fallback. */
+      var zero = parts[0] && parts[0].minor === 0 ? parts.shift() : null;
+      if(!parts.length){ parts = zero ? [zero] : []; zero = null; }
+      var head = zero || parts[0];
+      var phase = zero ? (zero.named || zero.summary || ('Project ' + m)) : ('Project ' + m);
       var mid = 'M' + (i + 1);
       var building = parts.filter(function(p){ return p.building; });
 

@@ -40,6 +40,25 @@ the tasks, one per line (`1 none`, `1a what you build`). OPE reads this file, so
 the project and its tasks appear the second you write them, and what you write
 while it says `Building` shows under it. Never leave a finished one on `Building`.
 
+**Feed the map as you work, in this same file.** Under any task, indent a
+dash for a plain words line and a number for a step in how it works:
+
+```
+3 none
+3a The worker adds the domain to Cloudflare.
+  - It asks Cloudflare to host the name, then waits for it to answer.
+  - Nothing is charged, the client already owns the name.
+  1. POST /zones with the domain and the account id.
+  2. Poll the zone until it says active, then mark it live here.
+```
+
+Those lines are what somebody reads when they zoom into that part of the map.
+Write them **as you build that piece, not at the end**, and keep them true when
+the piece changes: the map is drawn from this file every time it is opened, so
+whatever is written here is what it shows, and nothing written anywhere else
+will ever appear. Do not keep a separate map file, and never hand write one:
+there is one file, and it is this one.
+
 **Every project gets its task list, including a small change like 1.13.** If I
 have already said "build", write the list into `PROJECTS.md` and start building
 straight away without asking me again. Never skip the list because the work

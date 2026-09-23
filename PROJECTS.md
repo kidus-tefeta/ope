@@ -4,6 +4,31 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
+## 6.11 The map feeds itself as we work
+Done
+The map already redraws from PROJECTS.md every time it opens, so it can never
+be out of date. What it could not show was depth: BookHere's hand written map
+has plain words and how it works under every part, and nothing in PROJECTS.md
+carried that.
+
+Now it does. Under any task, an indented dash is a plain words line and an
+indented number is a step in how it works, and both are drawn on the map. So
+the deeper half of the map is written in the one file the method already makes
+everybody keep, while they build the piece, not in a second file somebody has
+to remember. A second file is what drifts. This cannot.
+
+1 none
+1a PROJECTS.md reads indented dashes and numbers under a task as that task's own detail.
+  - A dash is a plain words bullet, the thing somebody reads when they zoom in.
+  - A number is a step in how it works, drawn deeper still.
+  - Anything the person has to do themselves is already pulled up as its own bullet and tagged.
+2 none
+2a The prompt tells every AI coder to write those lines as it builds the piece, keep them true when the piece changes, and never keep a separate map file.
+3 none
+3a A "## 6.0 name" heading, when a project writes one, names its own phase and says what it is, instead of the bare number.
+4 none
+4a Proved on this file: these very lines were written into 6.10, and the map drew them, two bullets and three steps, on the card, in the app.
+
 ## 6.10 Every map is the same map
 Done
 BookHere's road map engine is now OPE's road map engine, for everybody. The
@@ -26,6 +51,11 @@ paragraph under the status word is the line on the card.
 2a PROJECTS.md turned into that data: phases, milestones, system cards, parts, statuses, an icon picked from the words.
 3 none
 3a A project's own page still wins when it has one, and OPE's own shell is never mistaken for one.
+  - A page counts as the project's own only if it is not OPE's shell, which says so in its first comment.
+  - Everything else falls through to the shell, filled from this file.
+  1. Every *map*.html in the project is looked at, in order.
+  2. The first one that is not the shell is read, its door undone and its scripts inlined.
+  3. If none is left, roadmap.html is fetched and filled from PROJECTS.md.
 4 none
 4a Proved in the compiled app, not a browser: kd-tracker-app drew 12 systems, 65 parts, 2 milestones, real names and real statuses, with the rail, the bar and the HUD. OPE's own folder drew 9 systems and 68 parts. BookHere still runs its own file, 19 systems, 134 parts, 9 milestones, its own wordmark and tagline.
 
