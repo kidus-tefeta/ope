@@ -213,9 +213,9 @@
       (both[0] || []).forEach(function(n){ byName[n.name] = n; });
       (both[1] || []).forEach(function(f){
         var n = byName[f.name];
-        if(n){ n.building = f.building; n.planning = f.planning; n.tasks = f.tasks; if(f.summary) n.named = f.summary; }
+        if(n){ n.building = f.building; n.planning = f.planning; n.tasks = f.tasks; n.blurb = f.blurb; if(f.summary) n.named = f.summary; }
         else byName[f.name] = {name: f.name, major: f.major, minor: f.minor, commits: [],
-                               summary: f.summary, named: f.summary, building: f.building, planning: f.planning, tasks: f.tasks};
+                               summary: f.summary, named: f.summary, building: f.building, planning: f.planning, tasks: f.tasks, blurb: f.blurb};
       });
       S.numbers = Object.keys(byName).map(function(k){ return byName[k]; })
         .sort(function(a, b){ return a.major - b.major || a.minor - b.minor; });

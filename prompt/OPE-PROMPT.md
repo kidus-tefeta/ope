@@ -27,7 +27,11 @@ Building
 
 The heading is the number and a short name. The line under it is one word:
 `Planning` while we are still talking it through, `Building` while you work on
-it and `Done` when it is finished. Under that go
+it and `Done` when it is finished. **Under that, before the task list, write two
+or three plain sentences saying what this project actually is and why**, for
+someone who has never seen the code. This is the only place OPE's map has
+anything to show when I zoom in on it, so do not skip it and do not write it
+for another AI: write it for me. Under that go
 the tasks, one per line (`1 none`, `1a what you build`). OPE reads this file, so
 the project and its tasks appear the second you write them, and what you write
 while it says `Building` shows under it. Never leave a finished one on `Building`.

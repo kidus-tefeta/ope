@@ -27,6 +27,8 @@ show a status the files do not support.
 4a Click a phase to zoom into its parts, click a part to read its summary and tasks.
 5 Open your own map when you get a chance and say if anything reads wrong.
 5a Built OPE.app for real (scripts/build.sh) and proved it in the actual app, not a browser: killed a stale OPE process left running from last night that was silently serving yesterday's build, launched the fresh one, clicked the map icon, opened BookHere's own real map. 1.0's 8 parts, their real names, and their real Done/Building/Planning status all matched PROJECTS.md exactly; opening 1.15 showed its real task list, word for word.
+6 none
+6a Fixed after Kidus flagged it looking at his own real map: a part's name was unreadable, and the map showed no real explanation of what a project is, only its bare task list. The number and status word are now drawn as SVG text so they never blur no matter how small the map is scaled; the plain paragraph already written under a project's status word in PROJECTS.md (the one this parser used to throw away) now shows in full on a click; the prompt now asks for that paragraph explicitly so every future project gets one, not only BookHere's. Proved against BookHere's real 1.10 entry through the dev server: the real paragraph, the real tasks, crisp numbers at every zoom tried down to 0.35x. Not yet re-checked inside the compiled app itself, the Mac locked mid-check.
 
 ## 6.7 A proper Mac app
 Done

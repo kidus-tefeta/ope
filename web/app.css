@@ -338,13 +338,12 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
 .mapview{flex:1;position:relative;min-height:0;overflow:hidden}
 .mapvp{position:absolute;inset:0;overflow:hidden;cursor:grab}
 .mapvp:active{cursor:grabbing}
-.mapworld{position:absolute;left:0;top:0;transform-origin:0 0}
+.mapworld{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 .maplinks{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 .maplink{fill:none;stroke-width:2.2;opacity:.9}
 
 .mnode{position:absolute;border:1.5px solid var(--edge-dim);border-radius:10px;background:#05070a;
-  display:flex;flex-direction:column;justify-content:center;padding:6px 12px;overflow:hidden;user-select:none}
-.mnode b{font-size:12px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  display:flex;flex-direction:column;justify-content:flex-end;padding:6px 10px;overflow:hidden;user-select:none}
 .mnode span{font-size:11px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .mnode.trunk{align-items:center;text-align:center;border-color:var(--edge);background:#000}
 .mnode.trunk span{color:var(--faint)}
@@ -352,12 +351,23 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
 .mnode.phase:hover{background:#0c1116}
 .mnode.part{cursor:pointer;border-radius:8px}
 .mnode.part:hover{background:#0c1116}
-.mnode .mtag{margin-top:4px;font-style:normal;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
 .mnode.s-plan{opacity:.55}
 .mnode.s-build{box-shadow:0 0 0 1px currentColor}
-.mnode.s-build .mtag,.mnode.part.s-build{animation:mapPulse 1.8s ease-in-out infinite}
+.mnode.part.s-build{animation:mapPulse 1.8s ease-in-out infinite}
 .mnode.s-done{opacity:1}
 @keyframes mapPulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* the numbers and status words, drawn as real SVG text over the boxes above.
+   Text inside the scaled world div blurs once the map shrinks to fit more
+   than a couple of phases; SVG text does not, the same reason the connecting
+   lines have always stayed crisp at any zoom. */
+.maplabels{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.mlabel{font-family:var(--mono);font-weight:800;fill:var(--ink);dominant-baseline:middle}
+.mlabeltrunk{font-size:12px}
+.mlabelpart{font-size:13px}
+.mlabelstatus{font-size:8px;font-weight:700;letter-spacing:.06em;fill:var(--faint)}
+.mlabel.s-plan{opacity:.55}
+.mlabel.s-build.mlabelpart,.mlabel.s-build.mlabelstatus{animation:mapPulse 1.8s ease-in-out infinite}
 
 .mapempty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--sub);padding:20px}
 .mapempty h3{margin:0 0 8px;color:var(--ink);font-size:14px;font-weight:600}
@@ -371,7 +381,8 @@ html.win32 .termtop,html.linux .termtop{padding:0 146px 0 12px}
 .mdcard>b{display:block;font-size:12px;letter-spacing:.04em}
 .mdcard h3{margin:6px 0 4px;font-size:14px;font-weight:600;color:var(--ink)}
 .mdst{margin:0 0 12px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--sub)}
-.mdtasks{margin:0;padding:0 0 0 16px;font-size:12px;line-height:1.6;color:var(--sub)}
+.mdblurb{margin:0 0 10px;font-size:12.5px;line-height:1.6;color:var(--ink)}
+.mdtasks{margin:0 0 0 0;padding:12px 0 0 16px;border-top:1px solid var(--edge-dim);font-size:12px;line-height:1.6;color:var(--sub)}
 .mdtasks b{color:var(--ink);margin-right:4px}
 .mdparts{display:flex;flex-wrap:wrap;gap:6px}
 .mdparts span{font-size:11px;border:1px solid var(--edge-dim);border-radius:5px;padding:2px 7px;color:var(--sub)}

@@ -14,7 +14,7 @@
   var COLORS = ['#FBBF24','#4ADE80','#22D3EE','#FB923C','#818CF8','#F472B6','#38BDF8','#A78BFA'];
 
   var PHASE_W = 168, PHASE_H = 64, PHASE_GAP = 46;
-  var PART_W = 168, PART_H = 46, PART_GAP = 14;
+  var PART_W = 168, PART_H = 40, PART_GAP = 14;
   var ROW_Y_PHASE = 96, ROW_Y_PART = 210;
   var TRUNK_W = 150, TRUNK_H = 52, TRUNK_Y = 10;
 
@@ -33,6 +33,23 @@
     return 'done';
   }
   function statusWord(s){ return s === 'plan' ? 'planning' : s === 'build' ? 'building' : 'done'; }
+
+  /* a node's own number, drawn as real SVG text, not HTML in the scaled div.
+     The connecting lines are SVG and always came out crisp at any zoom; the
+     HTML labels next to them did not, a real WebKit limit on text inside a
+     transform-scaled subtree, not a font or a size problem. Vector text has
+     no such limit, so the one thing every chip must always be readable by,
+     its number, is drawn this way. */
+  var labelSvg = null;
+  function label(x, y, text, cls, color){
+    var t = document.createElementNS(NS, 'text');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('class', cls);
+    t.setAttribute('text-anchor', 'middle');
+    if(color) t.style.fill = color;
+    t.textContent = text;
+    labelSvg.appendChild(t);
+  }
 
   function link(x1, y1, x2, y2, color){
     var midY = (y1 + y2) / 2;
@@ -79,9 +96,11 @@
 
     var trunk = el('mnode trunk');
     trunk.style.cssText = 'left:' + (trunkCx - TRUNK_W / 2) + 'px;top:' + TRUNK_Y + 'px;width:' + TRUNK_W + 'px;height:' + TRUNK_H + 'px';
-    trunk.innerHTML = '<b>' + esc(rootName || 'Your project') + '</b><span>' + phases.length + ' project' + (phases.length === 1 ? '' : 's') + '</span>';
+    trunk.innerHTML = '<span class="mtop">' + phases.length + ' project' + (phases.length === 1 ? '' : 's') + '</span>';
+    world.appendChild(trunk);
 
     var maxBottom = ROW_Y_PART;
+    var labels = [];
     phases.forEach(function(p, i){
       var cx = startX + i * (PHASE_W + PHASE_GAP) + PHASE_W / 2;
       p.cx = cx;
@@ -90,9 +109,10 @@
       var st = allDone(p) ? 'done' : (p.parts.some(function(x){ return x.building; }) ? 'build' : (p.parts.every(function(x){ return x.planning; }) ? 'plan' : 'build'));
       var node = el('mnode phase s-' + st);
       node.style.cssText = 'left:' + (cx - PHASE_W / 2) + 'px;top:' + ROW_Y_PHASE + 'px;width:' + PHASE_W + 'px;height:' + PHASE_H + 'px;border-color:' + p.color;
-      node.innerHTML = '<b style="color:' + p.color + '">' + esc(p.major + '.0') + '</b><span>' + esc(p.title) + '</span>';
+      node.innerHTML = '<span class="mtop">' + esc(p.title) + '</span>';
       node.onclick = function(e){ e.stopPropagation(); openDetail(p, null); };
       world.appendChild(node);
+      labels.push({x: cx, y: ROW_Y_PHASE + 22, text: p.major + '.0', cls: 'mlabel s-' + st, color: p.color});
 
       var y = ROW_Y_PART;
       p.parts.forEach(function(part){
@@ -100,26 +120,45 @@
         link(cx, ROW_Y_PHASE + PHASE_H, cx, y + PART_H / 2, p.color);
         var pn = el('mnode part s-' + s);
         pn.style.cssText = 'left:' + (cx - PART_W / 2) + 'px;top:' + y + 'px;width:' + PART_W + 'px;height:' + PART_H + 'px;border-color:' + p.color;
-        pn.innerHTML = '<b>' + esc(part.name) + '</b><span>' + esc(part.named || part.summary || '') + '</span><i class="mtag">' + statusWord(s) + '</i>';
+        /* the chip is just a colored box, no HTML text at all. Real HTML
+           text inside this scaled world blurs once the map is small enough
+           to fit several phases; SVG text drawn over it does not. Both the
+           number and the status word go there instead. The real name, and
+           what a part actually does, is the click. */
         pn.onclick = function(e){ e.stopPropagation(); openDetail(p, part); };
         world.appendChild(pn);
+        labels.push({x: cx, y: y + 17, text: part.name, cls: 'mlabel mlabelpart s-' + s});
+        labels.push({x: cx, y: y + 31, text: statusWord(s).toUpperCase(), cls: 'mlabel mlabelstatus s-' + s});
         y += PART_H + PART_GAP;
       });
       if(y > maxBottom) maxBottom = y;
     });
 
-    world.appendChild(trunk);
+    labelSvg = document.createElementNS(NS, 'svg'); labelSvg.setAttribute('class', 'maplabels'); world.appendChild(labelSvg);
+    label(trunkCx, TRUNK_Y + 24, rootName || 'Your project', 'mlabel mlabeltrunk');
+    labels.forEach(function(l){ label(l.x, l.y, l.text, l.cls, l.color); });
+
     worldW = totalW; worldH = maxBottom + 40;
     world.style.width = worldW + 'px'; world.style.height = worldH + 'px';
     svg.setAttribute('width', worldW); svg.setAttribute('height', worldH);
+    labelSvg.setAttribute('width', worldW); labelSvg.setAttribute('height', worldH);
     home();
   }
 
   function allDone(p){ return p.parts.every(function(x){ return !x.building && !x.planning; }); }
 
+  /* the paragraphs someone actually wrote in PROJECTS.md, between the status
+     word and the task list. This is the "full explanatory" text, the whole
+     reason the map has anything worth zooming in for. */
+  function blurbHtml(text){
+    var paras = String(text || '').split(/\n\s*\n/).map(function(s){ return s.trim(); }).filter(Boolean);
+    return paras.map(function(s){ return '<p class="mdblurb">' + esc(s) + '</p>'; }).join('');
+  }
+
   function openDetail(p, part){
     var detail = $('mapDetail');
     var color = p.color;
+    var item = part || p.parts[0];
     var tasks = part ? (part.tasks || []) : [];
     detail.innerHTML =
       '<div class="mdcard" style="border-color:' + color + '">'+
@@ -127,6 +166,7 @@
         '<b style="color:' + color + '">' + esc(part ? part.name : p.major + '.0') + '</b>'+
         '<h3>' + esc(part ? (part.named || part.summary || '') : p.title) + '</h3>'+
         (part ? '<p class="mdst">' + statusWord(statusOf(part)) + '</p>' : '<p class="mdst">' + p.parts.length + ' part' + (p.parts.length === 1 ? '' : 's') + '</p>')+
+        (item && item.blurb ? blurbHtml(item.blurb) : '')+
         (tasks.length ? '<ol class="mdtasks">' + tasks.map(function(t){ return '<li><b>' + esc(t.id) + '</b> ' + esc(t.text) + '</li>'; }).join('') + '</ol>' : '')+
         (!part ? '<div class="mdparts">' + p.parts.map(function(x){ return '<span class="s-' + statusOf(x) + '">' + esc(x.name) + '</span>'; }).join('') + '</div>' : '')+
       '</div>';

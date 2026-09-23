@@ -87,7 +87,7 @@
       String((r && r.text) || '').split('\n').forEach(function(line){
         var h = /^#{1,3}\s*(?:project\s+)?(\d+)\.(\d+)\b[:.]?\s*(.*)$/i.exec(line.trim());
         if(h){
-          cur = {name: h[1] + '.' + h[2], major: +h[1], minor: +h[2], summary: h[3].trim(), building: false, planning: false, tasks: []};
+          cur = {name: h[1] + '.' + h[2], major: +h[1], minor: +h[2], summary: h[3].trim(), building: false, planning: false, tasks: [], blurbLines: []};
           out.push(cur); return;
         }
         /* the tasks under it: "1 none", "1a what gets built", "2b what waits
@@ -99,7 +99,17 @@
           cur.status = /^building\b/.test(w) ? 'building' : /^planning\b/.test(w) ? 'planning' : /^done\b/.test(w) ? 'done' : '';
           cur.building = cur.status === 'building';
           cur.planning = cur.status === 'planning';
+          return;
         }
+        /* the plain paragraphs written between the status word and the task
+           list: what the project actually is, for a person who never sees
+           the code. The map has nothing else worth showing when someone
+           zooms in, so it is kept, not thrown away like before. */
+        if(cur && cur.status !== undefined && !cur.tasks.length) cur.blurbLines.push(line);
+      });
+      out.forEach(function(p){
+        p.blurb = p.blurbLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+        delete p.blurbLines;
       });
       return out;
     }).catch(function(){ return []; });
