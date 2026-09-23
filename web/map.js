@@ -74,9 +74,14 @@
       var yours = g.n && g.n.text && !/^none\b/i.test(g.n.text.trim()) ? g.n : null;
       var waits = g.b || null;
       var atoms = [], steps = [], tags = [];
-      /* the indented detail written under the task, when there is any */
+      /* the indented detail written under the task, when a PROJECTS.md ever
+         carries it. Most never do, a flat task line is all there is, so the
+         line itself is the one atom a generic project has to show: without
+         it the card never grows past its title and zooming in on it does
+         nothing, the bug he actually found. */
       (built.atoms || []).forEach(function(a){ atoms.push(a); });
       (built.steps || []).forEach(function(s){ steps.push(s); });
+      if(!atoms.length && !steps.length && built.text) atoms.push(built.text);
       if(yours){ atoms.push('Yours: ' + yours.text); tags.push('todo'); (yours.atoms || []).forEach(function(a){ atoms.push(a); }); }
       if(waits){ atoms.push('Waiting on you: ' + waits.text); tags.push('risk'); }
       return {t: built.text || ('Task ' + num), tags: tags, atoms: atoms, steps: steps};
