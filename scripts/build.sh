@@ -7,8 +7,10 @@ here=${0:a:h}
 root=${here:h}
 build="$root/build"
 app="$build/OPE.app"
-# the latest tag, or VERSION=1.6.1 to stamp a test build without tagging
-version=${VERSION:-$(cd "$root" && git describe --tags --abbrev=0 2>/dev/null || echo "1.0")}
+# the latest RELEASE tag, or VERSION=1.6.1 to stamp a test build without tagging.
+# Only v tags count: the method also tags each project number (6.9, 6.10), and
+# those are not app versions. Matching v* keeps the two apart.
+version=${VERSION:-$(cd "$root" && git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "1.0")}
 version=${version#v}
 
 echo "1/5 editor"

@@ -48,7 +48,7 @@ spctl --assess --type open --context context:primary-signature -v "$build/OPE.dm
 
 echo "update feed"
 # the feed Sparkle reads: one item, this version, signed with OPE's own key
-version=$(cd "$root" && git describe --tags --abbrev=0); version=${version#v}
+version=$(cd "$root" && git describe --tags --abbrev=0 --match 'v[0-9]*'); version=${version#v}
 sig=$("$build/vendor/Sparkle/bin/sign_update" -f "$HOME/.config/ope/sparkle-private-key" "$build/OPE.dmg")
 cat > "$build/appcast.xml" <<FEED
 <?xml version="1.0" encoding="utf-8"?>
