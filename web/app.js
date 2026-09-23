@@ -74,6 +74,7 @@
     $('code').classList.toggle('hidden', which !== 'code');
     $('blank').classList.toggle('hidden', which !== 'blank');
     $('mapView').classList.toggle('hidden', which !== 'map');
+    document.getElementById('ope').classList.toggle('mapmode', which === 'map');
     var code = which === 'code';
     $('saveBtn').classList.toggle('hidden', !code);
     $('checkBtn').classList.toggle('hidden', !code || !S.repo);

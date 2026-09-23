@@ -4,6 +4,33 @@ The method writes a project here the moment it is named, before any code, so
 OPE shows it straight away. `Planning` while it is talked through, `Building`
 while it is worked on, `Done` when it is finished.
 
+## 6.9 The map, in BookHere's own real style
+Done
+The generic map now looks like the real BookHere and KTeC road maps: an icon
+per card, a status pill, a title, a kicker line, a footer count, and a click
+that opens a bulleted "in plain words" sheet. Every project gets this by
+default, simple, no setup.
+
+BookHere itself is a special case, on purpose: when the opened folder has its
+own `public/bookhere-data.js`, the map draws that file directly, not a redraw
+of PROJECTS.md. Real phases, real systems, real tags, real "how it works"
+steps, the numbers never had to line up with 1.1 or 1.2. Any other project
+without a file like that gets the same card style drawn from its own
+PROJECTS.md, same as 6.8 already did.
+
+Map view also now hides the Explorer and the versions column: just the
+Projects list to pick from, and the map itself, nothing else competing for
+the screen.
+
+1 none
+1a The card style ported from bookhere-map.html: icon, status pill, kicker, footer, into a reusable engine.
+2 none
+2a BookHere's own file read and drawn directly when present, full three levels: phase, system, sub, with real tags and steps.
+3 none
+3a Map view hides Explorer and the versions column, mapmode class on the whole window.
+4 Open it on BookHere and say if anything reads wrong.
+4a Proved through the dev server against the real bookhere-data.js: 8 real phases, 19 real systems, real icons, real tags, real "how it works" steps, word for word. The generic fallback proved too, against OPE's own folder. Not yet re-clicked inside the compiled app itself: it kept landing on a different monitor each attempt, one of them showing something private, so I stopped rather than keep hunting across your screens.
+
 ## 6.8 The road map, in OPE itself
 Done
 A map icon in OPE. Click it, pick a project from the list already there, and
