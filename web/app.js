@@ -67,7 +67,15 @@
   }
 
   /* ------------------------------------------------------------ the views */
+  /* THE ORANGE RING DECIDES. While it sits on the map, the map is what you
+     see: a project opening, a file loading, a reload finishing, a version
+     picked, none of them get to pull the screen back to code or to a blank
+     line of instructions. Clicking another icon in the rail moves the ring
+     first, so that still works. */
+  function onMap(){ return !!document.querySelector('.rail .ico[data-view="map"].on'); }
+
   function show(which){
+    if(which !== 'map' && onMap()) return;
     $('welcome').classList.toggle('hidden', which !== 'welcome');
     $('learn').classList.toggle('hidden', which !== 'learn');
     if(which !== 'learn' && window.OPELearn) OPELearn.hide();
@@ -312,8 +320,9 @@
     return Promise.resolve(go).then(function(){
       S.libMajor = top.number; S.libSel = null; S.version = null;
       applyLibMajor(); clearMarks();
-      if($('versions').classList.contains('shut')) fold('versions', false);
-      renderProjects(); renderVersions();
+      if(!onMap() && $('versions').classList.contains('shut')) fold('versions', false);
+      renderProjects(); renderVersions(); refreshMap();
+      if(onMap()) return;
       status('Pick a version of ' + top.number + ' in the next column', '');
     });
   }

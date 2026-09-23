@@ -19,9 +19,12 @@ button{font:inherit;color:inherit}
   grid-template-areas:"top top top top top top" "rail projects versions files editor chat" "status status status status status status"}
 
 /* the map, alone: no versions column, no file tree behind it, just the
-   project picker and the map itself */
-#ope.mapmode{grid-template-columns:46px auto 0 0 minmax(420px,1fr) auto}
+   project picker and the map itself. The orange ring on the map icon is the
+   only thing that decides this, whatever project is open. */
 #ope.mapmode .versions,#ope.mapmode .files{display:none}
+@media (min-width:861px){
+  #ope.mapmode{grid-template-columns:46px auto 0 0 minmax(420px,1fr) auto}
+}
 
 /* the title bar: room on the left for the window buttons. Windows puts them on the right */
 html.win32 .top,html.linux .top{padding:0 146px 0 12px!important}
