@@ -46,6 +46,16 @@
 
   function $(id){ return document.getElementById(id); }
 
+  /* what the map is currently showing, as one number. The page is only
+     reloaded when this changes, so a save that did not touch the map leaves
+     your pan and zoom exactly where you left them, and a save that did
+     touch it can never be missed. */
+  function hash(s){
+    var h = 5381;
+    for(var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36) + ':' + s.length;
+  }
+
   /* the first real sentence, for the one line a card has room for */
   function kickOf(text, fallback){
     var s = String(text || '').replace(/\s+/g, ' ').trim();
@@ -236,7 +246,7 @@
 
   function render(numbers, rootName, files){
     loadOwnMap(files).then(function(own){
-      if(own) return showFrame(own, 'own:' + (ownCache.src || '').length);
+      if(own) return showFrame(own, 'own:' + hash(own));
 
       if(!(numbers || []).length){
         return showEmpty('<div><h3>No numbered projects yet</h3>'+
@@ -246,7 +256,8 @@
       return loadShell().then(function(page){
         if(!page) return showEmpty('<div><h3>The map could not load</h3><p>roadmap.html is missing from OPE.</p></div>');
         var data = fromProjects(numbers, rootName);
-        showFrame(fill(page, data), 'gen:' + rootName + ':' + JSON.stringify(data.SYS).length + ':' + JSON.stringify(data.META).length);
+        var body = JSON.stringify(data);
+        showFrame(fill(page, data), 'gen:' + hash(body));
       });
     });
   }

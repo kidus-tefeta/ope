@@ -141,11 +141,18 @@ end of **every** project and every numbered change, without being asked.
 
 When the whole list of **a** is done:
 
-1. Tell me each task in one line: **done and tested**, **done but cannot be tested
+1. **Update the map before anything else.** Nothing is `Done` until the map
+   shows the work. For most projects the map is drawn from `PROJECTS.md`, so
+   that means the plain words and the how it works lines under each task are
+   written and true, not a summary and not a promise to write them later.
+   If the project keeps a road map file of its own, the work goes in there
+   too, into the system it belongs under, at the same depth as everything
+   already in that file. A job that is not in the map is not finished.
+2. Tell me each task in one line: **done and tested**, **done but cannot be tested
    until I do my part**, or **blocked**.
-2. Then give me my **b** list, in order.
-3. Refine anything that is worth refining, then say "done, it is ready to deploy".
-4. **Deploy or publish only when I say "deploy".**
+3. Then give me my **b** list, in order.
+4. Refine anything that is worth refining, then say "done, it is ready to deploy".
+5. **Deploy or publish only when I say "deploy".**
 
 ## 7. Learning while building
 
